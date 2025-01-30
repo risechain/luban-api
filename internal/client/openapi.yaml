@@ -1,0 +1,151 @@
+openapi: 3.0.0
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: 'https://virtserver.swaggerhub.com/luban-0d2/test/1.0.0'
+info:
+  version: 1.0.0
+  title: commitments-api
+  description: The API for taiyi preconfimation service
+paths:
+  /commitments/v1/epoch_info:
+    get:
+      tags:
+        - v1
+      description: Slots which are available in the current lookahead
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpochInfo'
+  /commitments/v1/preconf_fee:
+    get:
+      tags:
+        - v1
+      description: Preconfirmation fee per gas in wei
+      parameters:
+        - schema:
+            type: integer
+          in: query
+          name: slot
+          description: slot
+      responses:
+        '200': 
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: integer
+                example: '8000000000'
+  /commitments/v1/reserve_blockspace:
+    post:
+      tags:
+        - v1
+      description: Blockspace reservation
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: x-taiyi-signature
+          description: An ECDSA signature from the user over fields of request body
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReserveBlockSpaceResponse'
+      requestBody:
+        description: Reserve blockspace request
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveBlockSpaceRequest'
+  /commitments/v1/submit_transaction:
+    post:
+      tags:
+        - v1
+      description: submit transaction
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: x-taiyi-signature
+          description: An ECDSA signature from the user over fields of body.
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitTransactionRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: string
+                example: '0xa24ffc315ee7761be34d265e4ccb7182ed81c9365e4401639901f4893cc5ab437e6425f3ab61df397a69ea2e23ff3e0311efeb57755a27f6999cd19d591c95c9c8b67bff2649f36cc7ed76f317496721509a8a026b11eb4bacba4a8aaa203539'
+components:
+  schemas:
+    SubmitTransactionRequest:
+      type: object
+      properties:
+        request-id:
+          type: string
+          format: uuid
+          example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
+        transaction:
+          type: string
+          example: '0xff'
+    ReserveBlockSpaceRequest:
+      type: object
+      properties:
+        target_slot:
+          type: integer
+          example: '64'
+        escrow_deposit:
+          type: integer
+          example: '293872836'
+        gas_limit:
+          type: integer
+          example: '983798'
+        blob_count:
+          type: integer
+          example: '1'
+    ReserveBlockSpaceResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+          example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
+        signature:
+          type: string
+          example: '0xa24ffc315ee7761be34d265e4ccb7182ed81c9365e4401639901f4893cc5ab437e6425f3ab61df397a69ea2e23ff3e0311efeb57755a27f6999cd19d591c95c9c8b67bff2649f36cc7ed76f317496721509a8a026b11eb4bacba4a8aaa203539'
+    EpochInfo:
+      type: object
+      properties:
+        available_slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlotInfo'
+    SlotInfo:
+      type: object
+      properties:
+        slot:
+          type: integer
+          example: '64'
+        gas_available:
+          type: integer
+          example: '983798'
+        blobs_available:
+          type: integer
+          example: '3'
+        constraints_available:
+          type: integer
+          example: '256'
