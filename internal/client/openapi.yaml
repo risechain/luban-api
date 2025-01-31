@@ -20,6 +20,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EpochInfo'
+                required: true
   /commitments/v1/preconf_fee:
     get:
       tags:
@@ -30,6 +31,7 @@ paths:
             type: integer
           in: query
           name: slot
+          required: true
           description: slot
       responses:
         '200': 
@@ -104,6 +106,7 @@ components:
           example: '0xff'
     ReserveBlockSpaceRequest:
       type: object
+      required: [target_slot, escrow_deposit, gas_limit, blob_count]
       properties:
         target_slot:
           type: integer
@@ -119,6 +122,7 @@ components:
           example: '1'
     ReserveBlockSpaceResponse:
       type: object
+      required: [request_id, signature]
       properties:
         request_id:
           type: string
@@ -129,6 +133,7 @@ components:
           example: '0xa24ffc315ee7761be34d265e4ccb7182ed81c9365e4401639901f4893cc5ab437e6425f3ab61df397a69ea2e23ff3e0311efeb57755a27f6999cd19d591c95c9c8b67bff2649f36cc7ed76f317496721509a8a026b11eb4bacba4a8aaa203539'
     EpochInfo:
       type: object
+      required: [available_slots]
       properties:
         available_slots:
           type: array
@@ -136,6 +141,7 @@ components:
             $ref: '#/components/schemas/SlotInfo'
     SlotInfo:
       type: object
+      required: [slot, gas_available, blobs_available, constraints_available]
       properties:
         slot:
           type: integer

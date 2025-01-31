@@ -19,29 +19,29 @@ import (
 
 // EpochInfo defines model for EpochInfo.
 type EpochInfo struct {
-	AvailableSlots *[]SlotInfo `json:"available_slots,omitempty"`
+	AvailableSlots []SlotInfo `json:"available_slots"`
 }
 
 // ReserveBlockSpaceRequest defines model for ReserveBlockSpaceRequest.
 type ReserveBlockSpaceRequest struct {
-	BlobCount     *int `json:"blob_count,omitempty"`
-	EscrowDeposit *int `json:"escrow_deposit,omitempty"`
-	GasLimit      *int `json:"gas_limit,omitempty"`
-	TargetSlot    *int `json:"target_slot,omitempty"`
+	BlobCount     int `json:"blob_count"`
+	EscrowDeposit int `json:"escrow_deposit"`
+	GasLimit      int `json:"gas_limit"`
+	TargetSlot    int `json:"target_slot"`
 }
 
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.
 type ReserveBlockSpaceResponse struct {
-	RequestId *openapi_types.UUID `json:"request_id,omitempty"`
-	Signature *string             `json:"signature,omitempty"`
+	RequestId openapi_types.UUID `json:"request_id"`
+	Signature string             `json:"signature"`
 }
 
 // SlotInfo defines model for SlotInfo.
 type SlotInfo struct {
-	BlobsAvailable       *int `json:"blobs_available,omitempty"`
-	ConstraintsAvailable *int `json:"constraints_available,omitempty"`
-	GasAvailable         *int `json:"gas_available,omitempty"`
-	Slot                 *int `json:"slot,omitempty"`
+	BlobsAvailable       int `json:"blobs_available"`
+	ConstraintsAvailable int `json:"constraints_available"`
+	GasAvailable         int `json:"gas_available"`
+	Slot                 int `json:"slot"`
 }
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
@@ -53,7 +53,7 @@ type SubmitTransactionRequest struct {
 // GetCommitmentsV1PreconfFeeParams defines parameters for GetCommitmentsV1PreconfFee.
 type GetCommitmentsV1PreconfFeeParams struct {
 	// Slot slot
-	Slot *int `form:"slot,omitempty" json:"slot,omitempty"`
+	Slot int `form:"slot" json:"slot"`
 }
 
 // PostCommitmentsV1ReserveBlockspaceParams defines parameters for PostCommitmentsV1ReserveBlockspace.
@@ -285,20 +285,16 @@ func NewGetCommitmentsV1PreconfFeeRequest(server string, params *GetCommitmentsV
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if params.Slot != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "slot", runtime.ParamLocationQuery, *params.Slot); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "slot", runtime.ParamLocationQuery, params.Slot); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
 				}
 			}
-
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
