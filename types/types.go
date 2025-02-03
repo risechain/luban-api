@@ -9,17 +9,17 @@ import (
 )
 
 type (
-	Transaction = types.Transaction
+	Transaction  = types.Transaction
 	ClientOption = internal.ClientOption
-	SlotInfo = internal.SlotInfo
+	SlotInfo     = internal.SlotInfo
 
 	ReserveBlockSpaceRequest struct {
 		Id            uuid.UUID
 		TxHash        common.Hash
-		BlobCount     uint
-		EscrowDeposit uint
-		GasLimit      uint
-		TargetSlot    uint
+		BlobCount     uint32
+		EscrowDeposit uint64
+		GasLimit      uint64
+		TargetSlot    uint64
 	}
 	ReserveBlockSpaceResponse struct {
 		RequestId uuid.UUID

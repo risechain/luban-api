@@ -41,7 +41,7 @@ paths:
       parameters:
         - schema:
             type: integer
-            format: int64
+            format: uint64
           in: query
           name: slot
           description: slot to fetch fee for
@@ -54,7 +54,7 @@ paths:
               schema:
                 type: integer
                 example: '8000000000'
-                format: int64
+                format: uint64
         '500':
           description: Internal server error
           content:
@@ -228,15 +228,19 @@ components:
       properties:
         target_slot:
           type: integer
+          format: uint64
           example: '64'
         escrow_deposit:
           type: integer
+          format: uint64
           example: '293872836'
         gas_limit:
           type: integer
+          format: uint64
           example: '983798'
         blob_count:
           type: integer
+          format: uint32
           example: '1'
           minimum: 0
           maximum: 6
@@ -262,21 +266,21 @@ components:
       properties:
         slot:
           type: integer
-          format: int64
+          format: uint64
           example: '64'
         gas_available:
           type: integer
-          format: int64
+          format: uint64
           example: '983798'
         blobs_available:
           type: integer
-          format: int32
+          format: uint32
           example: '3'
           minimum: 0
           maximum: 6
         constraints_available:
           type: integer
-          format: int32
+          format: uint32
           example: '78'
           minimum: 0
           maximum: 256

@@ -40,7 +40,7 @@ func (cl *Client) GetEpochInfo(ctx context.Context) ([]types.SlotInfo, error) {
 	return *resp.JSON200, nil
 }
 
-func (cl *Client) GetPreconfFee(ctx context.Context, slot int64) (int64, error) {
+func (cl *Client) GetPreconfFee(ctx context.Context, slot uint64) (uint64, error) {
 	resp, err := cl.ClientWithResponses.GetFeeWithResponse(ctx, &internal.GetFeeParams{slot})
 	if err != nil {
 		return 0, err
@@ -76,10 +76,10 @@ func (cl *Client) ReserveBlockspace(
 	}
 	signature := internal.ReserveBlockspaceParams{sig}
 	body := internal.ReserveBlockspaceJSONRequestBody{
-		BlobCount:     int(req.BlobCount),
-		EscrowDeposit: int(req.EscrowDeposit),
-		GasLimit:      int(req.GasLimit),
-		TargetSlot:    int(req.TargetSlot),
+		BlobCount:     req.BlobCount,
+		EscrowDeposit: req.EscrowDeposit,
+		GasLimit:      req.GasLimit,
+		TargetSlot:    req.TargetSlot,
 	}
 	resp, err := cl.ClientWithResponses.ReserveBlockspaceWithResponse(ctx, &signature, body)
 	if err != nil {
