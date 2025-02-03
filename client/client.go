@@ -5,16 +5,10 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	common_eth "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/google/uuid"
 
 	internal "github.com/risechain/luban-api/internal/client"
-)
-
-type (
-	SlotInfo                  = internal.SlotInfo
-	ReserveBlockSpaceResponse = internal.ReserveBlockSpaceResponse
+	"github.com/risechain/luban-api/types"
 )
 
 type Client struct {
@@ -33,13 +27,13 @@ func NewClient(server string, key ecdsa.PrivateKey, opts ...internal.ClientOptio
 	return &client, nil
 }
 
-func (cl *Client) GetEpochInfo(ctx context.Context) ([]SlotInfo, error) {
+func (cl *Client) GetEpochInfo(ctx context.Context) ([]types.SlotInfo, error) {
 	resp, err := cl.ClientWithResponses.GetSlotsWithResponse(ctx)
 	if err != nil {
-		return []SlotInfo{}, err
+		return []types.SlotInfo{}, err
 	}
 	if resp.JSON200 == nil {
-		return []SlotInfo{}, fmt.Errorf("GetEpochInfo return code %v", resp.Status())
+		return []types.SlotInfo{}, fmt.Errorf("GetEpochInfo return code %v", resp.Status())
 	}
 	return *resp.JSON200, nil
 }
@@ -55,22 +49,8 @@ func (cl *Client) GetPreconfFee(ctx context.Context, slot int64) (int64, error) 
 	return *resp.JSON200, nil
 }
 
-type ReserveBlockSpaceRequest struct {
-	Id            uuid.UUID
-	TxHash        common_eth.Hash
-	BlobCount     int
-	EscrowDeposit int
-	GasLimit      int
-	TargetSlot    int
-}
-
-func (cl *Client) signReq(id uuid.UUID, txHash common_eth.Hash) (string, error) {
-	id_bin, err := id.MarshalBinary()
-	if err != nil {
-		return "", err
-	}
-
-	signature, err := crypto.Sign(append(id_bin, txHash.Bytes()...), &cl.key)
+func (cl *Client) sign(bytes []byte) (string, error) {
+	signature, err := crypto.Sign(bytes, &cl.key)
 	if err != nil {
 		return "", err
 	}
@@ -81,18 +61,23 @@ func (cl *Client) signReq(id uuid.UUID, txHash common_eth.Hash) (string, error) 
 
 func (cl *Client) ReserveBlockspace(
 	ctx context.Context,
-	req ReserveBlockSpaceRequest,
-) (*ReserveBlockSpaceResponse, error) {
-	sig, err := cl.signReq(req.Id, req.TxHash)
+	req types.ReserveBlockSpaceRequest,
+) (*types.ReserveBlockSpaceResponse, error) {
+	id_bin, err := req.Id.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := cl.sign(append(id_bin, req.TxHash.Bytes()...))
 	if err != nil {
 		return nil, err
 	}
 	signature := internal.ReserveBlockspaceParams{sig}
 	body := internal.ReserveBlockspaceJSONRequestBody{
-		BlobCount:     req.BlobCount,
-		EscrowDeposit: req.EscrowDeposit,
-		GasLimit:      req.GasLimit,
-		TargetSlot:    req.TargetSlot,
+		BlobCount:     int(req.BlobCount),
+		EscrowDeposit: int(req.EscrowDeposit),
+		GasLimit:      int(req.GasLimit),
+		TargetSlot:    int(req.TargetSlot),
 	}
 	resp, err := cl.ClientWithResponses.ReserveBlockspaceWithResponse(ctx, &signature, body)
 	if err != nil {
@@ -101,5 +86,6 @@ func (cl *Client) ReserveBlockspace(
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("ReserveBlockspace return code %v", resp.Status())
 	}
-	return resp.JSON200, nil
+	response := types.ReserveBlockSpaceResponse{resp.JSON200.RequestId, resp.JSON200.Signature}
+	return &response, nil
 }
