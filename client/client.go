@@ -12,7 +12,10 @@ import (
 	internal "github.com/risechain/luban-api/internal/client"
 )
 
-type SlotInfo = internal.SlotInfo
+type (
+	SlotInfo                  = internal.SlotInfo
+	ReserveBlockSpaceResponse = internal.ReserveBlockSpaceResponse
+)
 
 type Client struct {
 	*internal.ClientWithResponses
@@ -31,25 +34,23 @@ func NewClient(server string, key ecdsa.PrivateKey, opts ...internal.ClientOptio
 }
 
 func (cl *Client) GetEpochInfo(ctx context.Context) ([]SlotInfo, error) {
-	resp, err := cl.ClientWithResponses.GetCommitmentsV1EpochInfoWithResponse(ctx)
+	resp, err := cl.ClientWithResponses.GetSlotsWithResponse(ctx)
 	if err != nil {
 		return []SlotInfo{}, err
 	}
 	if resp.JSON200 == nil {
 		return []SlotInfo{}, fmt.Errorf("GetEpochInfo return code %v", resp.Status())
 	}
-	return resp.JSON200.AvailableSlots, nil
+	return *resp.JSON200, nil
 }
 
-func (cl *Client) GetPreconfFee(ctx context.Context, slot int) (int, error) {
-	resp, err := cl.ClientWithResponses.GetCommitmentsV1PreconfFeeWithResponse(ctx, &internal.GetCommitmentsV1PreconfFeeParams{
-		Slot: slot,
-	})
+func (cl *Client) GetPreconfFee(ctx context.Context, slot int64) (int64, error) {
+	resp, err := cl.ClientWithResponses.GetFeeWithResponse(ctx, &internal.GetFeeParams{slot})
 	if err != nil {
 		return 0, err
 	}
 	if resp.JSON200 == nil {
-		return 0, fmt.Errorf("GetPreconfFee return code %v", resp.Status())
+		return 0, fmt.Errorf("GetPreconfFee return code %v and error `%v`", resp.Status(), resp.JSON500)
 	}
 	return *resp.JSON200, nil
 }
@@ -78,19 +79,22 @@ func (cl *Client) signReq(id uuid.UUID, txHash common_eth.Hash) (string, error) 
 	return string(signature), nil
 }
 
-func (cl *Client) ReserveBlockspace(ctx context.Context, req ReserveBlockSpaceRequest) (*internal.ReserveBlockSpaceResponse, error) {
+func (cl *Client) ReserveBlockspace(
+	ctx context.Context,
+	req ReserveBlockSpaceRequest,
+) (*ReserveBlockSpaceResponse, error) {
 	sig, err := cl.signReq(req.Id, req.TxHash)
 	if err != nil {
 		return nil, err
 	}
-	signature := internal.PostCommitmentsV1ReserveBlockspaceParams{&sig}
-	body := internal.PostCommitmentsV1ReserveBlockspaceJSONRequestBody{
+	signature := internal.ReserveBlockspaceParams{sig}
+	body := internal.ReserveBlockspaceJSONRequestBody{
 		BlobCount:     req.BlobCount,
 		EscrowDeposit: req.EscrowDeposit,
 		GasLimit:      req.GasLimit,
 		TargetSlot:    req.TargetSlot,
 	}
-	resp, err := cl.ClientWithResponses.PostCommitmentsV1ReserveBlockspaceWithResponse(ctx, &signature, body)
+	resp, err := cl.ClientWithResponses.ReserveBlockspaceWithResponse(ctx, &signature, body)
 	if err != nil {
 		return nil, err
 	}

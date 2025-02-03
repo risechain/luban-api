@@ -17,11 +17,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// EpochInfo defines model for EpochInfo.
-type EpochInfo struct {
-	AvailableSlots []SlotInfo `json:"available_slots"`
-}
-
 // ReserveBlockSpaceRequest defines model for ReserveBlockSpaceRequest.
 type ReserveBlockSpaceRequest struct {
 	BlobCount     int `json:"blob_count"`
@@ -33,46 +28,48 @@ type ReserveBlockSpaceRequest struct {
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.
 type ReserveBlockSpaceResponse struct {
 	RequestId openapi_types.UUID `json:"request_id"`
-	Signature string             `json:"signature"`
+
+	// Signature An ECDSA signature signed over request body and request id by the gateway
+	Signature string `json:"signature"`
 }
 
 // SlotInfo defines model for SlotInfo.
 type SlotInfo struct {
-	BlobsAvailable       int `json:"blobs_available"`
-	ConstraintsAvailable int `json:"constraints_available"`
-	GasAvailable         int `json:"gas_available"`
-	Slot                 int `json:"slot"`
+	BlobsAvailable       int32  `json:"blobs_available"`
+	ConstraintsAvailable *int32 `json:"constraints_available,omitempty"`
+	GasAvailable         int64  `json:"gas_available"`
+	Slot                 int64  `json:"slot"`
 }
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
 type SubmitTransactionRequest struct {
-	RequestId   *openapi_types.UUID `json:"request-id,omitempty"`
-	Transaction *string             `json:"transaction,omitempty"`
+	RequestId   openapi_types.UUID `json:"request_id"`
+	Transaction string             `json:"transaction"`
 }
 
-// GetCommitmentsV1PreconfFeeParams defines parameters for GetCommitmentsV1PreconfFee.
-type GetCommitmentsV1PreconfFeeParams struct {
-	// Slot slot
-	Slot int `form:"slot" json:"slot"`
+// GetFeeParams defines parameters for GetFee.
+type GetFeeParams struct {
+	// Slot slot to fetch fee for
+	Slot int64 `form:"slot" json:"slot"`
 }
 
-// PostCommitmentsV1ReserveBlockspaceParams defines parameters for PostCommitmentsV1ReserveBlockspace.
-type PostCommitmentsV1ReserveBlockspaceParams struct {
+// ReserveBlockspaceParams defines parameters for ReserveBlockspace.
+type ReserveBlockspaceParams struct {
 	// XTaiyiSignature An ECDSA signature from the user over fields of request body
-	XTaiyiSignature *string `json:"x-taiyi-signature,omitempty"`
+	XTaiyiSignature string `json:"x-taiyi-signature"`
 }
 
-// PostCommitmentsV1SubmitTransactionParams defines parameters for PostCommitmentsV1SubmitTransaction.
-type PostCommitmentsV1SubmitTransactionParams struct {
+// SubmitTransactionParams defines parameters for SubmitTransaction.
+type SubmitTransactionParams struct {
 	// XTaiyiSignature An ECDSA signature from the user over fields of body.
-	XTaiyiSignature *string `json:"x-taiyi-signature,omitempty"`
+	XTaiyiSignature string `json:"x-taiyi-signature"`
 }
 
-// PostCommitmentsV1ReserveBlockspaceJSONRequestBody defines body for PostCommitmentsV1ReserveBlockspace for application/json ContentType.
-type PostCommitmentsV1ReserveBlockspaceJSONRequestBody = ReserveBlockSpaceRequest
+// ReserveBlockspaceJSONRequestBody defines body for ReserveBlockspace for application/json ContentType.
+type ReserveBlockspaceJSONRequestBody = ReserveBlockSpaceRequest
 
-// PostCommitmentsV1SubmitTransactionJSONRequestBody defines body for PostCommitmentsV1SubmitTransaction for application/json ContentType.
-type PostCommitmentsV1SubmitTransactionJSONRequestBody = SubmitTransactionRequest
+// SubmitTransactionJSONRequestBody defines body for SubmitTransaction for application/json ContentType.
+type SubmitTransactionJSONRequestBody = SubmitTransactionRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -147,25 +144,25 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetCommitmentsV1EpochInfo request
-	GetCommitmentsV1EpochInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetSlots request
+	GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetCommitmentsV1PreconfFee request
-	GetCommitmentsV1PreconfFee(ctx context.Context, params *GetCommitmentsV1PreconfFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetFee request
+	GetFee(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostCommitmentsV1ReserveBlockspaceWithBody request with any body
-	PostCommitmentsV1ReserveBlockspaceWithBody(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ReserveBlockspaceWithBody request with any body
+	ReserveBlockspaceWithBody(ctx context.Context, params *ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostCommitmentsV1ReserveBlockspace(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, body PostCommitmentsV1ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ReserveBlockspace(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostCommitmentsV1SubmitTransactionWithBody request with any body
-	PostCommitmentsV1SubmitTransactionWithBody(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// SubmitTransactionWithBody request with any body
+	SubmitTransactionWithBody(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostCommitmentsV1SubmitTransaction(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, body PostCommitmentsV1SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SubmitTransaction(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetCommitmentsV1EpochInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetCommitmentsV1EpochInfoRequest(c.Server)
+func (c *Client) GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSlotsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +173,8 @@ func (c *Client) GetCommitmentsV1EpochInfo(ctx context.Context, reqEditors ...Re
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetCommitmentsV1PreconfFee(ctx context.Context, params *GetCommitmentsV1PreconfFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetCommitmentsV1PreconfFeeRequest(c.Server, params)
+func (c *Client) GetFee(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFeeRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +185,8 @@ func (c *Client) GetCommitmentsV1PreconfFee(ctx context.Context, params *GetComm
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostCommitmentsV1ReserveBlockspaceWithBody(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostCommitmentsV1ReserveBlockspaceRequestWithBody(c.Server, params, contentType, body)
+func (c *Client) ReserveBlockspaceWithBody(ctx context.Context, params *ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReserveBlockspaceRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +197,8 @@ func (c *Client) PostCommitmentsV1ReserveBlockspaceWithBody(ctx context.Context,
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostCommitmentsV1ReserveBlockspace(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, body PostCommitmentsV1ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostCommitmentsV1ReserveBlockspaceRequest(c.Server, params, body)
+func (c *Client) ReserveBlockspace(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReserveBlockspaceRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +209,8 @@ func (c *Client) PostCommitmentsV1ReserveBlockspace(ctx context.Context, params 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostCommitmentsV1SubmitTransactionWithBody(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostCommitmentsV1SubmitTransactionRequestWithBody(c.Server, params, contentType, body)
+func (c *Client) SubmitTransactionWithBody(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitTransactionRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +221,8 @@ func (c *Client) PostCommitmentsV1SubmitTransactionWithBody(ctx context.Context,
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostCommitmentsV1SubmitTransaction(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, body PostCommitmentsV1SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostCommitmentsV1SubmitTransactionRequest(c.Server, params, body)
+func (c *Client) SubmitTransaction(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitTransactionRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -236,8 +233,8 @@ func (c *Client) PostCommitmentsV1SubmitTransaction(ctx context.Context, params 
 	return c.Client.Do(req)
 }
 
-// NewGetCommitmentsV1EpochInfoRequest generates requests for GetCommitmentsV1EpochInfo
-func NewGetCommitmentsV1EpochInfoRequest(server string) (*http.Request, error) {
+// NewGetSlotsRequest generates requests for GetSlots
+func NewGetSlotsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -263,8 +260,8 @@ func NewGetCommitmentsV1EpochInfoRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewGetCommitmentsV1PreconfFeeRequest generates requests for GetCommitmentsV1PreconfFee
-func NewGetCommitmentsV1PreconfFeeRequest(server string, params *GetCommitmentsV1PreconfFeeParams) (*http.Request, error) {
+// NewGetFeeRequest generates requests for GetFee
+func NewGetFeeRequest(server string, params *GetFeeParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -308,19 +305,19 @@ func NewGetCommitmentsV1PreconfFeeRequest(server string, params *GetCommitmentsV
 	return req, nil
 }
 
-// NewPostCommitmentsV1ReserveBlockspaceRequest calls the generic PostCommitmentsV1ReserveBlockspace builder with application/json body
-func NewPostCommitmentsV1ReserveBlockspaceRequest(server string, params *PostCommitmentsV1ReserveBlockspaceParams, body PostCommitmentsV1ReserveBlockspaceJSONRequestBody) (*http.Request, error) {
+// NewReserveBlockspaceRequest calls the generic ReserveBlockspace builder with application/json body
+func NewReserveBlockspaceRequest(server string, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostCommitmentsV1ReserveBlockspaceRequestWithBody(server, params, "application/json", bodyReader)
+	return NewReserveBlockspaceRequestWithBody(server, params, "application/json", bodyReader)
 }
 
-// NewPostCommitmentsV1ReserveBlockspaceRequestWithBody generates requests for PostCommitmentsV1ReserveBlockspace with any type of body
-func NewPostCommitmentsV1ReserveBlockspaceRequestWithBody(server string, params *PostCommitmentsV1ReserveBlockspaceParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewReserveBlockspaceRequestWithBody generates requests for ReserveBlockspace with any type of body
+func NewReserveBlockspaceRequestWithBody(server string, params *ReserveBlockspaceParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -347,35 +344,33 @@ func NewPostCommitmentsV1ReserveBlockspaceRequestWithBody(server string, params 
 
 	if params != nil {
 
-		if params.XTaiyiSignature != nil {
-			var headerParam0 string
+		var headerParam0 string
 
-			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, *params.XTaiyiSignature)
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("x-taiyi-signature", headerParam0)
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, params.XTaiyiSignature)
+		if err != nil {
+			return nil, err
 		}
+
+		req.Header.Set("x-taiyi-signature", headerParam0)
 
 	}
 
 	return req, nil
 }
 
-// NewPostCommitmentsV1SubmitTransactionRequest calls the generic PostCommitmentsV1SubmitTransaction builder with application/json body
-func NewPostCommitmentsV1SubmitTransactionRequest(server string, params *PostCommitmentsV1SubmitTransactionParams, body PostCommitmentsV1SubmitTransactionJSONRequestBody) (*http.Request, error) {
+// NewSubmitTransactionRequest calls the generic SubmitTransaction builder with application/json body
+func NewSubmitTransactionRequest(server string, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostCommitmentsV1SubmitTransactionRequestWithBody(server, params, "application/json", bodyReader)
+	return NewSubmitTransactionRequestWithBody(server, params, "application/json", bodyReader)
 }
 
-// NewPostCommitmentsV1SubmitTransactionRequestWithBody generates requests for PostCommitmentsV1SubmitTransaction with any type of body
-func NewPostCommitmentsV1SubmitTransactionRequestWithBody(server string, params *PostCommitmentsV1SubmitTransactionParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewSubmitTransactionRequestWithBody generates requests for SubmitTransaction with any type of body
+func NewSubmitTransactionRequestWithBody(server string, params *SubmitTransactionParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -402,16 +397,14 @@ func NewPostCommitmentsV1SubmitTransactionRequestWithBody(server string, params 
 
 	if params != nil {
 
-		if params.XTaiyiSignature != nil {
-			var headerParam0 string
+		var headerParam0 string
 
-			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, *params.XTaiyiSignature)
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("x-taiyi-signature", headerParam0)
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, params.XTaiyiSignature)
+		if err != nil {
+			return nil, err
 		}
+
+		req.Header.Set("x-taiyi-signature", headerParam0)
 
 	}
 
@@ -461,31 +454,31 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetCommitmentsV1EpochInfoWithResponse request
-	GetCommitmentsV1EpochInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCommitmentsV1EpochInfoResponse, error)
+	// GetSlotsWithResponse request
+	GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error)
 
-	// GetCommitmentsV1PreconfFeeWithResponse request
-	GetCommitmentsV1PreconfFeeWithResponse(ctx context.Context, params *GetCommitmentsV1PreconfFeeParams, reqEditors ...RequestEditorFn) (*GetCommitmentsV1PreconfFeeResponse, error)
+	// GetFeeWithResponse request
+	GetFeeWithResponse(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*GetFeeResponse, error)
 
-	// PostCommitmentsV1ReserveBlockspaceWithBodyWithResponse request with any body
-	PostCommitmentsV1ReserveBlockspaceWithBodyWithResponse(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCommitmentsV1ReserveBlockspaceResponse, error)
+	// ReserveBlockspaceWithBodyWithResponse request with any body
+	ReserveBlockspaceWithBodyWithResponse(ctx context.Context, params *ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReserveBlockspaceResponse, error)
 
-	PostCommitmentsV1ReserveBlockspaceWithResponse(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, body PostCommitmentsV1ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCommitmentsV1ReserveBlockspaceResponse, error)
+	ReserveBlockspaceWithResponse(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*ReserveBlockspaceResponse, error)
 
-	// PostCommitmentsV1SubmitTransactionWithBodyWithResponse request with any body
-	PostCommitmentsV1SubmitTransactionWithBodyWithResponse(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCommitmentsV1SubmitTransactionResponse, error)
+	// SubmitTransactionWithBodyWithResponse request with any body
+	SubmitTransactionWithBodyWithResponse(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error)
 
-	PostCommitmentsV1SubmitTransactionWithResponse(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, body PostCommitmentsV1SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCommitmentsV1SubmitTransactionResponse, error)
+	SubmitTransactionWithResponse(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error)
 }
 
-type GetCommitmentsV1EpochInfoResponse struct {
+type GetSlotsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *EpochInfo
+	JSON200      *[]SlotInfo
 }
 
 // Status returns HTTPResponse.Status
-func (r GetCommitmentsV1EpochInfoResponse) Status() string {
+func (r GetSlotsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -493,21 +486,28 @@ func (r GetCommitmentsV1EpochInfoResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetCommitmentsV1EpochInfoResponse) StatusCode() int {
+func (r GetSlotsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetCommitmentsV1PreconfFeeResponse struct {
+type GetFeeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *int
+	JSON200      *int64
+	JSON500      *struct {
+		// Code Either specific error code in case of invalid request or http status code
+		Code *float32 `json:"code,omitempty"`
+
+		// Message Message describing error
+		Message *string `json:"message,omitempty"`
+	}
 }
 
 // Status returns HTTPResponse.Status
-func (r GetCommitmentsV1PreconfFeeResponse) Status() string {
+func (r GetFeeResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -515,21 +515,35 @@ func (r GetCommitmentsV1PreconfFeeResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetCommitmentsV1PreconfFeeResponse) StatusCode() int {
+func (r GetFeeResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PostCommitmentsV1ReserveBlockspaceResponse struct {
+type ReserveBlockspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ReserveBlockSpaceResponse
+	JSON400      *struct {
+		// Code Either specific error code in case of invalid request or http status code
+		Code float32 `json:"code"`
+
+		// Message Message describing error
+		Message string `json:"message"`
+	}
+	JSON500 *struct {
+		// Code Either specific error code in case of invalid request or http status code
+		Code *float32 `json:"code,omitempty"`
+
+		// Message Message describing error
+		Message *string `json:"message,omitempty"`
+	}
 }
 
 // Status returns HTTPResponse.Status
-func (r PostCommitmentsV1ReserveBlockspaceResponse) Status() string {
+func (r ReserveBlockspaceResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -537,21 +551,35 @@ func (r PostCommitmentsV1ReserveBlockspaceResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostCommitmentsV1ReserveBlockspaceResponse) StatusCode() int {
+func (r ReserveBlockspaceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PostCommitmentsV1SubmitTransactionResponse struct {
+type SubmitTransactionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *string
+	JSON400      *struct {
+		// Code Either specific error code in case of invalid request or http status code
+		Code float32 `json:"code"`
+
+		// Message Message describing error
+		Message string `json:"message"`
+	}
+	JSON500 *struct {
+		// Code Either specific error code in case of invalid request or http status code
+		Code *float32 `json:"code,omitempty"`
+
+		// Message Message describing error
+		Message *string `json:"message,omitempty"`
+	}
 }
 
 // Status returns HTTPResponse.Status
-func (r PostCommitmentsV1SubmitTransactionResponse) Status() string {
+func (r SubmitTransactionResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -559,81 +587,81 @@ func (r PostCommitmentsV1SubmitTransactionResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostCommitmentsV1SubmitTransactionResponse) StatusCode() int {
+func (r SubmitTransactionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-// GetCommitmentsV1EpochInfoWithResponse request returning *GetCommitmentsV1EpochInfoResponse
-func (c *ClientWithResponses) GetCommitmentsV1EpochInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCommitmentsV1EpochInfoResponse, error) {
-	rsp, err := c.GetCommitmentsV1EpochInfo(ctx, reqEditors...)
+// GetSlotsWithResponse request returning *GetSlotsResponse
+func (c *ClientWithResponses) GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error) {
+	rsp, err := c.GetSlots(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetCommitmentsV1EpochInfoResponse(rsp)
+	return ParseGetSlotsResponse(rsp)
 }
 
-// GetCommitmentsV1PreconfFeeWithResponse request returning *GetCommitmentsV1PreconfFeeResponse
-func (c *ClientWithResponses) GetCommitmentsV1PreconfFeeWithResponse(ctx context.Context, params *GetCommitmentsV1PreconfFeeParams, reqEditors ...RequestEditorFn) (*GetCommitmentsV1PreconfFeeResponse, error) {
-	rsp, err := c.GetCommitmentsV1PreconfFee(ctx, params, reqEditors...)
+// GetFeeWithResponse request returning *GetFeeResponse
+func (c *ClientWithResponses) GetFeeWithResponse(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*GetFeeResponse, error) {
+	rsp, err := c.GetFee(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetCommitmentsV1PreconfFeeResponse(rsp)
+	return ParseGetFeeResponse(rsp)
 }
 
-// PostCommitmentsV1ReserveBlockspaceWithBodyWithResponse request with arbitrary body returning *PostCommitmentsV1ReserveBlockspaceResponse
-func (c *ClientWithResponses) PostCommitmentsV1ReserveBlockspaceWithBodyWithResponse(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCommitmentsV1ReserveBlockspaceResponse, error) {
-	rsp, err := c.PostCommitmentsV1ReserveBlockspaceWithBody(ctx, params, contentType, body, reqEditors...)
+// ReserveBlockspaceWithBodyWithResponse request with arbitrary body returning *ReserveBlockspaceResponse
+func (c *ClientWithResponses) ReserveBlockspaceWithBodyWithResponse(ctx context.Context, params *ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReserveBlockspaceResponse, error) {
+	rsp, err := c.ReserveBlockspaceWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostCommitmentsV1ReserveBlockspaceResponse(rsp)
+	return ParseReserveBlockspaceResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostCommitmentsV1ReserveBlockspaceWithResponse(ctx context.Context, params *PostCommitmentsV1ReserveBlockspaceParams, body PostCommitmentsV1ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCommitmentsV1ReserveBlockspaceResponse, error) {
-	rsp, err := c.PostCommitmentsV1ReserveBlockspace(ctx, params, body, reqEditors...)
+func (c *ClientWithResponses) ReserveBlockspaceWithResponse(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*ReserveBlockspaceResponse, error) {
+	rsp, err := c.ReserveBlockspace(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostCommitmentsV1ReserveBlockspaceResponse(rsp)
+	return ParseReserveBlockspaceResponse(rsp)
 }
 
-// PostCommitmentsV1SubmitTransactionWithBodyWithResponse request with arbitrary body returning *PostCommitmentsV1SubmitTransactionResponse
-func (c *ClientWithResponses) PostCommitmentsV1SubmitTransactionWithBodyWithResponse(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCommitmentsV1SubmitTransactionResponse, error) {
-	rsp, err := c.PostCommitmentsV1SubmitTransactionWithBody(ctx, params, contentType, body, reqEditors...)
+// SubmitTransactionWithBodyWithResponse request with arbitrary body returning *SubmitTransactionResponse
+func (c *ClientWithResponses) SubmitTransactionWithBodyWithResponse(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error) {
+	rsp, err := c.SubmitTransactionWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostCommitmentsV1SubmitTransactionResponse(rsp)
+	return ParseSubmitTransactionResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostCommitmentsV1SubmitTransactionWithResponse(ctx context.Context, params *PostCommitmentsV1SubmitTransactionParams, body PostCommitmentsV1SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCommitmentsV1SubmitTransactionResponse, error) {
-	rsp, err := c.PostCommitmentsV1SubmitTransaction(ctx, params, body, reqEditors...)
+func (c *ClientWithResponses) SubmitTransactionWithResponse(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error) {
+	rsp, err := c.SubmitTransaction(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostCommitmentsV1SubmitTransactionResponse(rsp)
+	return ParseSubmitTransactionResponse(rsp)
 }
 
-// ParseGetCommitmentsV1EpochInfoResponse parses an HTTP response from a GetCommitmentsV1EpochInfoWithResponse call
-func ParseGetCommitmentsV1EpochInfoResponse(rsp *http.Response) (*GetCommitmentsV1EpochInfoResponse, error) {
+// ParseGetSlotsResponse parses an HTTP response from a GetSlotsWithResponse call
+func ParseGetSlotsResponse(rsp *http.Response) (*GetSlotsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetCommitmentsV1EpochInfoResponse{
+	response := &GetSlotsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest EpochInfo
+		var dest []SlotInfo
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -644,41 +672,54 @@ func ParseGetCommitmentsV1EpochInfoResponse(rsp *http.Response) (*GetCommitments
 	return response, nil
 }
 
-// ParseGetCommitmentsV1PreconfFeeResponse parses an HTTP response from a GetCommitmentsV1PreconfFeeWithResponse call
-func ParseGetCommitmentsV1PreconfFeeResponse(rsp *http.Response) (*GetCommitmentsV1PreconfFeeResponse, error) {
+// ParseGetFeeResponse parses an HTTP response from a GetFeeWithResponse call
+func ParseGetFeeResponse(rsp *http.Response) (*GetFeeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetCommitmentsV1PreconfFeeResponse{
+	response := &GetFeeResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest int
+		var dest int64
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest struct {
+			// Code Either specific error code in case of invalid request or http status code
+			Code *float32 `json:"code,omitempty"`
+
+			// Message Message describing error
+			Message *string `json:"message,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
 	return response, nil
 }
 
-// ParsePostCommitmentsV1ReserveBlockspaceResponse parses an HTTP response from a PostCommitmentsV1ReserveBlockspaceWithResponse call
-func ParsePostCommitmentsV1ReserveBlockspaceResponse(rsp *http.Response) (*PostCommitmentsV1ReserveBlockspaceResponse, error) {
+// ParseReserveBlockspaceResponse parses an HTTP response from a ReserveBlockspaceWithResponse call
+func ParseReserveBlockspaceResponse(rsp *http.Response) (*ReserveBlockspaceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostCommitmentsV1ReserveBlockspaceResponse{
+	response := &ReserveBlockspaceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -691,20 +732,46 @@ func ParsePostCommitmentsV1ReserveBlockspaceResponse(rsp *http.Response) (*PostC
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest struct {
+			// Code Either specific error code in case of invalid request or http status code
+			Code float32 `json:"code"`
+
+			// Message Message describing error
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest struct {
+			// Code Either specific error code in case of invalid request or http status code
+			Code *float32 `json:"code,omitempty"`
+
+			// Message Message describing error
+			Message *string `json:"message,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
 }
 
-// ParsePostCommitmentsV1SubmitTransactionResponse parses an HTTP response from a PostCommitmentsV1SubmitTransactionWithResponse call
-func ParsePostCommitmentsV1SubmitTransactionResponse(rsp *http.Response) (*PostCommitmentsV1SubmitTransactionResponse, error) {
+// ParseSubmitTransactionResponse parses an HTTP response from a SubmitTransactionWithResponse call
+func ParseSubmitTransactionResponse(rsp *http.Response) (*SubmitTransactionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostCommitmentsV1SubmitTransactionResponse{
+	response := &SubmitTransactionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -716,6 +783,32 @@ func ParsePostCommitmentsV1SubmitTransactionResponse(rsp *http.Response) (*PostC
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest struct {
+			// Code Either specific error code in case of invalid request or http status code
+			Code float32 `json:"code"`
+
+			// Message Message describing error
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest struct {
+			// Code Either specific error code in case of invalid request or http status code
+			Code *float32 `json:"code,omitempty"`
+
+			// Message Message describing error
+			Message *string `json:"message,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

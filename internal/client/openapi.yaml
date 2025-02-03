@@ -1,38 +1,51 @@
 openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Commitments API
+  description: The API for taiyi preconfimation service
 servers:
   # Added by API Auto Mocking Plugin
   - description: SwaggerHub API Auto Mocking
-    url: 'https://virtserver.swaggerhub.com/luban-0d2/test/1.0.0'
-info:
-  version: 1.0.0
-  title: commitments-api
-  description: The API for taiyi preconfimation service
+    url: https://virtserver.swaggerhub.com/luban-0d2/taiyi/1.0.0
+  - description: Holesky
+    url: ' https://taiyi.holesky.luban.wtf'
+    
 paths:
   /commitments/v1/epoch_info:
     get:
+      operationId: getSlots
       tags:
         - v1
-      description: Slots which are available in the current lookahead
+      summary: Get a list of slots which are available in the current and next epoch
+      description: |
+        * Used by users to know when to submit preconf requests for an upcoming slot.
+        * Returns an array of SlotInfo
       responses:
         '200':
           description: Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EpochInfo'
-                required: true
+                type: array
+                items:
+                  $ref: '#/components/schemas/SlotInfo'
+                  
   /commitments/v1/preconf_fee:
     get:
+      operationId: getFee
       tags:
         - v1
-      description: Preconfirmation fee per gas in wei
+      summary: Returns a fee quoted in "wei" per gas
+      description: |
+        * Used to fetch fee
       parameters:
         - schema:
             type: integer
+            format: int64
           in: query
           name: slot
+          description: slot to fetch fee for
           required: true
-          description: slot
       responses:
         '200': 
           description: Success
@@ -41,24 +54,42 @@ paths:
               schema:
                 type: integer
                 example: '8000000000'
-  /commitments/v1/reserve_blockspace:
-    post:
-      tags:
-        - v1
-      description: Blockspace reservation
-      parameters:
-        - schema:
-            type: string
-          in: header
-          name: x-taiyi-signature
-          description: An ECDSA signature from the user over fields of request body
-      responses:
-        '200':
-          description: Success
+                format: int64
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReserveBlockSpaceResponse'
+                 properties:
+                  code:
+                    description: Either specific error code in case of invalid request or http status code
+                    type: number
+                  message:
+                    description: Message describing error
+                    type: string
+              example:
+                code: 500
+                message: internal server error
+                
+  /commitments/v1/reserve_blockspace:
+    post:
+      operationId: reserveBlockspace
+      tags:
+        - v1
+      summary: Reserves blockspace for a slot
+      description: |
+        * Used to reserve blockspace for a slot for later use.
+        * One must have reserved some blockspace before submiting a preconf transaction
+      parameters:
+        - schema:
+            type: string
+            format: hex
+            pattern: '^0x[a-fA-F0-9]{130}$'
+            example: '0x8a726dc1d89dc0b10a27130c562cce2d346f2bbac1af683d9b55632825e4abc0480bcf25276452a3c076f2a5d756c6deedd552cfc343dd34a5953835f4d7c8a71c'
+          in: header
+          name: x-taiyi-signature
+          description: An ECDSA signature from the user over fields of request body
+          required: true
       requestBody:
         description: Reserve blockspace request
         required: true
@@ -66,19 +97,63 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReserveBlockSpaceRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReserveBlockSpaceResponse'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                required: 
+                  - code
+                  - message
+                properties:
+                  code:
+                    description: Either specific error code in case of invalid request or http status code
+                    type: number
+                    example: 400
+                  message:
+                    description: Message describing error
+                    type: string
+                    example: requested blockspace not available for slot
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                 properties:
+                  code:
+                    description: Either specific error code in case of invalid request or http status code
+                    type: number
+                  message:
+                    description: Message describing error
+                    type: string
+              example:
+                code: 500
+                message: internal server error
+                    
+                
   /commitments/v1/submit_transaction:
     post:
+      operationId: submitTransaction
       tags:
         - v1
-      description: submit transaction
+      summary: Used to submit transaction
+      description: |
+        * Returns a commitment from the gateway
       parameters:
         - schema:
             type: string
           in: header
           name: x-taiyi-signature
+          required: true
           description: An ECDSA signature from the user over fields of body.
       requestBody:
-        description: Optional description in *Markdown*
         required: true
         content:
           application/json:
@@ -91,22 +166,65 @@ paths:
             application/json:
               schema:
                 type: string
-                example: '0xa24ffc315ee7761be34d265e4ccb7182ed81c9365e4401639901f4893cc5ab437e6425f3ab61df397a69ea2e23ff3e0311efeb57755a27f6999cd19d591c95c9c8b67bff2649f36cc7ed76f317496721509a8a026b11eb4bacba4a8aaa203539'
+                format: hex
+                pattern: '^0x[a-fA-F0-9]{130}$'
+                description: An ECDSA signature signed by the gateway over the request body.
+                example: '0x8a726dc1d89dc0b10a27130c562cce2d346f2bbac1af683d9b55632825e4abc0480bcf25276452a3c076f2a5d756c6deedd552cfc343dd34a5953835f4d7c8a71c'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                required: 
+                  - code
+                  - message
+                properties:
+                  code:
+                    description: Either specific error code in case of invalid request or http status code
+                    type: number
+                    example: 400
+                  message:
+                    description: Message describing error
+                    type: string
+                    example: Transaction for this request id was already submitted
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                 properties:
+                  code:
+                    description: Either specific error code in case of invalid request or http status code
+                    type: number
+                  message:
+                    description: Message describing error
+                    type: string
+              example:
+                code: 500
+                message: internal server error
 components:
   schemas:
     SubmitTransactionRequest:
       type: object
+      required:
+        - request_id
+        - transaction
       properties:
-        request-id:
+        request_id:
           type: string
           format: uuid
           example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
         transaction:
           type: string
-          example: '0xff'
+          format: hex
+          example: '0x02f86f0102843b9aca0085029e7822d68298f094d9e1459a7a482635700cbc20bbaf52d495ab9c9680841b55ba3ac080a0c199674fcb29f353693dd779c017823b954b3c69dffa3cd6b2a6ff7888798039a028ca912de909e7e6cdef9cdcaf24c54dd8c1032946dfa1d85c206b32a9064fe8'
     ReserveBlockSpaceRequest:
       type: object
-      required: [target_slot, escrow_deposit, gas_limit, blob_count]
+      required: 
+        - target_slot
+        - escrow_deposit
+        - gas_limit
+        - blob_count
       properties:
         target_slot:
           type: integer
@@ -120,9 +238,13 @@ components:
         blob_count:
           type: integer
           example: '1'
+          minimum: 0
+          maximum: 6
     ReserveBlockSpaceResponse:
       type: object
-      required: [request_id, signature]
+      required: 
+        - request_id
+        - signature
       properties:
         request_id:
           type: string
@@ -130,28 +252,31 @@ components:
           example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
         signature:
           type: string
-          example: '0xa24ffc315ee7761be34d265e4ccb7182ed81c9365e4401639901f4893cc5ab437e6425f3ab61df397a69ea2e23ff3e0311efeb57755a27f6999cd19d591c95c9c8b67bff2649f36cc7ed76f317496721509a8a026b11eb4bacba4a8aaa203539'
-    EpochInfo:
-      type: object
-      required: [available_slots]
-      properties:
-        available_slots:
-          type: array
-          items:
-            $ref: '#/components/schemas/SlotInfo'
+          format: hex
+          pattern: '^0x[a-fA-F0-9]{130}$'
+          description: An ECDSA signature signed over request body and request id by the gateway
+          example: '0x8a726dc1d89dc0b10a27130c562cce2d346f2bbac1af683d9b55632825e4abc0480bcf25276452a3c076f2a5d756c6deedd552cfc343dd34a5953835f4d7c8a71c'
     SlotInfo:
       type: object
-      required: [slot, gas_available, blobs_available, constraints_available]
+      required: [slot, gas_available, blobs_available, constraints_availaible]
       properties:
         slot:
           type: integer
+          format: int64
           example: '64'
         gas_available:
           type: integer
+          format: int64
           example: '983798'
         blobs_available:
           type: integer
+          format: int32
           example: '3'
+          minimum: 0
+          maximum: 6
         constraints_available:
           type: integer
-          example: '256'
+          format: int32
+          example: '78'
+          minimum: 0
+          maximum: 256
