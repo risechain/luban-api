@@ -2,14 +2,14 @@ package types
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 
-	txmgr "github.com/ethereum-optimism/optimism/op-service/txmgr"
 	internal "github.com/risechain/luban-api/internal/client"
 )
 
 type (
-	Transaction = txmgr.TxCandidate
+	Transaction = types.Transaction
 	ClientOption = internal.ClientOption
 	SlotInfo = internal.SlotInfo
 

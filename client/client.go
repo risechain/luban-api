@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/ethereum/go-ethereum/crypto"
 
 	internal "github.com/risechain/luban-api/internal/client"
@@ -88,4 +90,24 @@ func (cl *Client) ReserveBlockspace(
 	}
 	response := types.ReserveBlockSpaceResponse{resp.JSON200.RequestId, resp.JSON200.Signature}
 	return &response, nil
+}
+
+// TODO: Handle slashing and everything
+func (cl *Client) SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx types.Transaction) error {
+	tx_bin, err := tx.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	sig, err := cl.sign(tx_bin)
+
+	params := internal.SubmitTransactionParams{sig}
+	req := internal.SubmitTransactionRequest{reqId, string(tx.Data())}
+	resp, err := cl.SubmitTransactionWithResponse(ctx, &params, req)
+	if err != nil {
+		return err
+	}
+	if resp.JSON200 == nil {
+		return fmt.Errorf("SubmitTransaction return code %v", resp.Status())
+	}
+	return err
 }
