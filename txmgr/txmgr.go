@@ -54,6 +54,33 @@ func NewPreconfTxMgr(l log.Logger, backend txmgr.ETHBackend, cfg *txmgr.Config, 
 	}
 }
 
+func (m *PreconfTxMgr) getEpochForCandidate(ctx context.Context, candidate *txmgr.TxCandidate) (uint64, error) {
+	slots, err := m.client.GetEpochInfo(ctx)
+	// TODO: retry here or on a preconf client side?
+	if err != nil {
+		return 0, fmt.Errorf("geting epoch info for preconf failed: %w", err)
+	}
+
+	nBlobs := uint32(len(candidate.Blobs))
+	slot := uint64(0)
+	for _, s := range slots {
+		if s.BlobsAvailable < nBlobs {
+			continue
+		}
+		if s.GasAvailable < candidate.GasLimit {
+			continue
+		}
+		slot = s.Slot
+		break
+	}
+	if slot == 0 {
+		return 0, errors.New("No slots available for transaction")
+	}
+
+	return slot, nil
+}
+
+// TODO: wrap in timeout?
 func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
 	tx, err := m.prepare(ctx, candidate)
 	if err != nil {
@@ -63,26 +90,10 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 	nBlobs := uint32(len(candidate.Blobs))
 
 	for {
-		slots, err := m.client.GetEpochInfo(ctx)
-		// TODO: retry here or on a preconf client side?
+		slot, err := m.getEpochForCandidate(ctx, &candidate)
+		// XXX: Figure out if we should wait till next slot or it should be fatal
 		if err != nil {
-			return nil, fmt.Errorf("geting epoch info for preconf failed: %w", err)
-		}
-
-		slot := uint64(0)
-		for _, s := range slots {
-			if s.BlobsAvailable < nBlobs {
-				continue
-			}
-			if s.GasAvailable < candidate.GasLimit {
-				continue
-			}
-			slot = s.Slot
-			break
-		}
-		if slot == 0 {
-			// XXX: Figure out if we should wait till next slot or it should be fatal
-			return nil, errors.New("No slots available for transaction")
+			return nil, err
 		}
 
 		resp, err := m.client.ReserveBlockspace(ctx, luban.ReserveBlockSpaceRequest{
@@ -105,6 +116,8 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 		}
 		break
 	}
+
+	// TODO: wait for tx to land on chain
 
 	return &types.Receipt{}, nil
 }
