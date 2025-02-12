@@ -19,27 +19,27 @@ import (
 
 // PreconfFeeResponse denominated in wei
 type PreconfFeeResponse struct {
-	BlobGasFee int `json:"blob_gas_fee"`
-	GasFee     int `json:"gas_fee"`
+	BlobGasFee uint64 `json:"blob_gas_fee"`
+	GasFee     uint64 `json:"gas_fee"`
 }
 
 // ReserveBlockSpaceRequest defines model for ReserveBlockSpaceRequest.
 type ReserveBlockSpaceRequest struct {
-	BlobCount int `json:"blob_count"`
+	BlobCount uint32 `json:"blob_count"`
 
 	// Deposit This is the amount deducted from the user's escrow balance when the user fails to submit a transaction for the allocated blockspace.
 	//
 	// The deposit is calculated as follows:
 	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
-	Deposit    int `json:"deposit"`
-	GasLimit   int `json:"gas_limit"`
-	TargetSlot int `json:"target_slot"`
+	Deposit    uint64 `json:"deposit"`
+	GasLimit   uint64 `json:"gas_limit"`
+	TargetSlot uint64 `json:"target_slot"`
 
 	// Tip This is the amount deducted from the user's escrow balance along with `[deposit]` when the user submits a transaction for the allocated blockspace.
 	//
 	// The tip is calculated as follows:
 	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
-	Tip int `json:"tip"`
+	Tip uint64 `json:"tip"`
 }
 
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.
@@ -52,10 +52,10 @@ type ReserveBlockSpaceResponse struct {
 
 // SlotInfo defines model for SlotInfo.
 type SlotInfo struct {
-	BlobsAvailable       int32  `json:"blobs_available"`
-	ConstraintsAvailable *int32 `json:"constraints_available,omitempty"`
-	GasAvailable         int    `json:"gas_available"`
-	Slot                 int64  `json:"slot"`
+	BlobsAvailable       uint32  `json:"blobs_available"`
+	ConstraintsAvailable *uint32 `json:"constraints_available,omitempty"`
+	GasAvailable         uint64  `json:"gas_available"`
+	Slot                 uint64  `json:"slot"`
 }
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
@@ -67,7 +67,7 @@ type SubmitTransactionRequest struct {
 // GetFeeParams defines parameters for GetFee.
 type GetFeeParams struct {
 	// Slot slot to fetch fee for
-	Slot int64 `form:"slot" json:"slot"`
+	Slot uint64 `form:"slot" json:"slot"`
 }
 
 // ReserveBlockspaceParams defines parameters for ReserveBlockspace.

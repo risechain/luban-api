@@ -41,7 +41,7 @@ paths:
       parameters:
         - schema:
             type: integer
-            format: int64
+            format: uint64
           in: query
           name: slot
           description: slot to fetch fee for
@@ -228,12 +228,15 @@ components:
       properties:
         target_slot:
           type: integer
+          format: uint64
           example: '64'
         gas_limit:
           type: integer
+          format: uint64
           example: '983798'
         deposit:
           type: integer
+          format: uint64
           description: |
             This is the amount deducted from the user's escrow balance when the user fails to submit a transaction for the allocated blockspace.
             
@@ -242,6 +245,7 @@ components:
           example: '293872836'
         tip:
           type: integer
+          format: uint64
           description: |
             This is the amount deducted from the user's escrow balance along with `[deposit]` when the user submits a transaction for the allocated blockspace.
             
@@ -250,6 +254,7 @@ components:
           example: '293872836'
         blob_count:
           type: integer
+          format: uint32
           example: '1'
           minimum: 0
           maximum: 6
@@ -275,20 +280,21 @@ components:
       properties:
         slot:
           type: integer
-          format: int64
+          format: uint64
           example: '64'
         gas_available:
           type: integer
+          format: uint64
           example: '983798'
         blobs_available:
           type: integer
-          format: int32
+          format: uint32
           example: '3'
           minimum: 0
           maximum: 6
         constraints_available:
           type: integer
-          format: int32
+          format: uint32
           example: '78'
           minimum: 0
           maximum: 256
@@ -299,7 +305,9 @@ components:
       properties:
         gas_fee:
           type: integer
+          format: uint64
           example: 682000000
         blob_gas_fee:
           type: integer
+          format: uint64
           example: 408014488
