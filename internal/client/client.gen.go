@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 
+	geth_hexutil "github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -31,15 +32,15 @@ type ReserveBlockSpaceRequest struct {
 	//
 	// The deposit is calculated as follows:
 	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
-	Deposit    uint64 `json:"deposit"`
-	GasLimit   uint64 `json:"gas_limit"`
-	TargetSlot uint64 `json:"target_slot"`
+	Deposit    geth_hexutil.U256 `json:"deposit"`
+	GasLimit   uint64            `json:"gas_limit"`
+	TargetSlot uint64            `json:"target_slot"`
 
 	// Tip This is the amount deducted from the user's escrow balance along with `[deposit]` when the user submits a transaction for the allocated blockspace.
 	//
 	// The tip is calculated as follows:
 	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
-	Tip uint64 `json:"tip"`
+	Tip geth_hexutil.U256 `json:"tip"`
 }
 
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.

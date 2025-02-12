@@ -235,7 +235,11 @@ components:
           example: '983798'
         deposit:
           type: integer
-          format: uint64
+          format: uint256
+          x-go-type: geth_hexutil.U256
+          x-go-type-import:
+            path: github.com/ethereum/go-ethereum/common/hexutil
+            name: geth_hexutil
           description: |
             This is the amount deducted from the user's escrow balance when the user fails to submit a transaction for the allocated blockspace.
             
@@ -244,7 +248,11 @@ components:
           example: '293872836'
         tip:
           type: integer
-          format: uint64
+          format: uint256
+          x-go-type: geth_hexutil.U256
+          x-go-type-import:
+            path: github.com/ethereum/go-ethereum/common/hexutil
+            name: geth_hexutil
           description: |
             This is the amount deducted from the user's escrow balance along with `[deposit]` when the user submits a transaction for the allocated blockspace.
             
