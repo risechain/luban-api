@@ -17,12 +17,29 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// PreconfFeeResponse denominated in wei
+type PreconfFeeResponse struct {
+	BlobGasFee int `json:"blob_gas_fee"`
+	GasFee     int `json:"gas_fee"`
+}
+
 // ReserveBlockSpaceRequest defines model for ReserveBlockSpaceRequest.
 type ReserveBlockSpaceRequest struct {
-	BlobCount     uint32 `json:"blob_count"`
-	EscrowDeposit uint64 `json:"escrow_deposit"`
-	GasLimit      uint64 `json:"gas_limit"`
-	TargetSlot    uint64 `json:"target_slot"`
+	BlobCount int `json:"blob_count"`
+
+	// Deposit This is the amount deducted from the user's escrow balance when the user fails to submit a transaction for the allocated blockspace.
+	//
+	// The deposit is calculated as follows:
+	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+	Deposit    int `json:"deposit"`
+	GasLimit   int `json:"gas_limit"`
+	TargetSlot int `json:"target_slot"`
+
+	// Tip This is the amount deducted from the user's escrow balance along with `[deposit]` when the user submits a transaction for the allocated blockspace.
+	//
+	// The tip is calculated as follows:
+	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+	Tip int `json:"tip"`
 }
 
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.
@@ -35,10 +52,10 @@ type ReserveBlockSpaceResponse struct {
 
 // SlotInfo defines model for SlotInfo.
 type SlotInfo struct {
-	BlobsAvailable       uint32  `json:"blobs_available"`
-	ConstraintsAvailable *uint32 `json:"constraints_available,omitempty"`
-	GasAvailable         uint64  `json:"gas_available"`
-	Slot                 uint64  `json:"slot"`
+	BlobsAvailable       int32  `json:"blobs_available"`
+	ConstraintsAvailable *int32 `json:"constraints_available,omitempty"`
+	GasAvailable         int    `json:"gas_available"`
+	Slot                 int64  `json:"slot"`
 }
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
@@ -50,7 +67,7 @@ type SubmitTransactionRequest struct {
 // GetFeeParams defines parameters for GetFee.
 type GetFeeParams struct {
 	// Slot slot to fetch fee for
-	Slot uint64 `form:"slot" json:"slot"`
+	Slot int64 `form:"slot" json:"slot"`
 }
 
 // ReserveBlockspaceParams defines parameters for ReserveBlockspace.
@@ -496,7 +513,7 @@ func (r GetSlotsResponse) StatusCode() int {
 type GetFeeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *uint64
+	JSON200      *interface{}
 	JSON500      *struct {
 		// Code Either specific error code in case of invalid request or http status code
 		Code *float32 `json:"code,omitempty"`
@@ -687,7 +704,7 @@ func ParseGetFeeResponse(rsp *http.Response) (*GetFeeResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest uint64
+		var dest interface{}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

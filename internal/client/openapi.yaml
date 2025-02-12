@@ -41,7 +41,7 @@ paths:
       parameters:
         - schema:
             type: integer
-            format: uint64
+            format: int64
           in: query
           name: slot
           description: slot to fetch fee for
@@ -52,9 +52,8 @@ paths:
           content:
             application/json:
               schema:
-                type: integer
-                example: '8000000000'
-                format: uint64
+                items:
+                  $ref: '#/components/schemas/PreconfFeeResponse'
         '500':
           description: Internal server error
           content:
@@ -222,25 +221,35 @@ components:
       type: object
       required: 
         - target_slot
-        - escrow_deposit
+        - deposit
+        - tip
         - gas_limit
         - blob_count
       properties:
         target_slot:
           type: integer
-          format: uint64
           example: '64'
-        escrow_deposit:
-          type: integer
-          format: uint64
-          example: '293872836'
         gas_limit:
           type: integer
-          format: uint64
           example: '983798'
+        deposit:
+          type: integer
+          description: |
+            This is the amount deducted from the user's escrow balance when the user fails to submit a transaction for the allocated blockspace.
+            
+            The deposit is calculated as follows:
+            { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+          example: '293872836'
+        tip:
+          type: integer
+          description: |
+            This is the amount deducted from the user's escrow balance along with `[deposit]` when the user submits a transaction for the allocated blockspace.
+            
+            The tip is calculated as follows:
+            { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+          example: '293872836'
         blob_count:
           type: integer
-          format: uint32
           example: '1'
           minimum: 0
           maximum: 6
@@ -266,21 +275,31 @@ components:
       properties:
         slot:
           type: integer
-          format: uint64
+          format: int64
           example: '64'
         gas_available:
           type: integer
-          format: uint64
           example: '983798'
         blobs_available:
           type: integer
-          format: uint32
+          format: int32
           example: '3'
           minimum: 0
           maximum: 6
         constraints_available:
           type: integer
-          format: uint32
+          format: int32
           example: '78'
           minimum: 0
           maximum: 256
+    PreconfFeeResponse:
+      type: object
+      required: [gas_fee, blob_gas_fee]
+      description: denominated in wei
+      properties:
+        gas_fee:
+          type: integer
+          example: 682000000
+        blob_gas_fee:
+          type: integer
+          example: 408014488
