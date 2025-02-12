@@ -52,8 +52,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/PreconfFeeResponse'
+                $ref: '#/components/schemas/PreconfFeeResponse'
         '500':
           description: Internal server error
           content:

@@ -513,7 +513,7 @@ func (r GetSlotsResponse) StatusCode() int {
 type GetFeeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *interface{}
+	JSON200      *PreconfFeeResponse
 	JSON500      *struct {
 		// Code Either specific error code in case of invalid request or http status code
 		Code *float32 `json:"code,omitempty"`
@@ -704,7 +704,7 @@ func ParseGetFeeResponse(rsp *http.Response) (*GetFeeResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest interface{}
+		var dest PreconfFeeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
