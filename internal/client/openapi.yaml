@@ -214,8 +214,10 @@ components:
           example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
         transaction:
           type: string
-          format: hex
-          example: '0x02f86f0102843b9aca0085029e7822d68298f094d9e1459a7a482635700cbc20bbaf52d495ab9c9680841b55ba3ac080a0c199674fcb29f353693dd779c017823b954b3c69dffa3cd6b2a6ff7888798039a028ca912de909e7e6cdef9cdcaf24c54dd8c1032946dfa1d85c206b32a9064fe8'
+          x-go-type: geth_core_types.Transaction
+          x-go-type-import:
+            path: github.com/ethereum/go-ethereum/core/types
+            name: geth_core_types
     ReserveBlockSpaceRequest:
       type: object
       required: 

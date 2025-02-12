@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	geth_hexutil "github.com/ethereum/go-ethereum/common/hexutil"
+	geth_core_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -61,8 +62,8 @@ type SlotInfo struct {
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
 type SubmitTransactionRequest struct {
-	RequestId   openapi_types.UUID `json:"request_id"`
-	Transaction string             `json:"transaction"`
+	RequestId   openapi_types.UUID          `json:"request_id"`
+	Transaction geth_core_types.Transaction `json:"transaction"`
 }
 
 // GetFeeParams defines parameters for GetFee.
