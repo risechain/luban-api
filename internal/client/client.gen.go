@@ -163,9 +163,6 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetSlots request
-	GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetFee request
 	GetFee(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -174,22 +171,13 @@ type ClientInterface interface {
 
 	ReserveBlockspace(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetSlots request
+	GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SubmitTransactionWithBody request with any body
 	SubmitTransactionWithBody(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SubmitTransaction(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-}
-
-func (c *Client) GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSlotsRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
 }
 
 func (c *Client) GetFee(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -228,6 +216,18 @@ func (c *Client) ReserveBlockspace(ctx context.Context, params *ReserveBlockspac
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSlotsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) SubmitTransactionWithBody(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSubmitTransactionRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -252,33 +252,6 @@ func (c *Client) SubmitTransaction(ctx context.Context, params *SubmitTransactio
 	return c.Client.Do(req)
 }
 
-// NewGetSlotsRequest generates requests for GetSlots
-func NewGetSlotsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/commitments/v1/epoch_info")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetFeeRequest generates requests for GetFee
 func NewGetFeeRequest(server string, params *GetFeeParams) (*http.Request, error) {
 	var err error
@@ -288,7 +261,7 @@ func NewGetFeeRequest(server string, params *GetFeeParams) (*http.Request, error
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/commitments/v1/preconf_fee")
+	operationPath := fmt.Sprintf("/commitments/v0/estimate_fee")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -344,7 +317,7 @@ func NewReserveBlockspaceRequestWithBody(server string, params *ReserveBlockspac
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/commitments/v1/reserve_blockspace")
+	operationPath := fmt.Sprintf("/commitments/v0/reserve_blockspace")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -377,6 +350,33 @@ func NewReserveBlockspaceRequestWithBody(server string, params *ReserveBlockspac
 	return req, nil
 }
 
+// NewGetSlotsRequest generates requests for GetSlots
+func NewGetSlotsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/commitments/v0/slots")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewSubmitTransactionRequest calls the generic SubmitTransaction builder with application/json body
 func NewSubmitTransactionRequest(server string, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -397,7 +397,7 @@ func NewSubmitTransactionRequestWithBody(server string, params *SubmitTransactio
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/commitments/v1/submit_transaction")
+	operationPath := fmt.Sprintf("/commitments/v0/submit_transaction")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -473,9 +473,6 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetSlotsWithResponse request
-	GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error)
-
 	// GetFeeWithResponse request
 	GetFeeWithResponse(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*GetFeeResponse, error)
 
@@ -484,32 +481,13 @@ type ClientWithResponsesInterface interface {
 
 	ReserveBlockspaceWithResponse(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*ReserveBlockspaceResponse, error)
 
+	// GetSlotsWithResponse request
+	GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error)
+
 	// SubmitTransactionWithBodyWithResponse request with any body
 	SubmitTransactionWithBodyWithResponse(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error)
 
 	SubmitTransactionWithResponse(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error)
-}
-
-type GetSlotsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]SlotInfo
-}
-
-// Status returns HTTPResponse.Status
-func (r GetSlotsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetSlotsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
 }
 
 type GetFeeResponse struct {
@@ -577,6 +555,28 @@ func (r ReserveBlockspaceResponse) StatusCode() int {
 	return 0
 }
 
+type GetSlotsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]SlotInfo
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSlotsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSlotsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type SubmitTransactionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -613,15 +613,6 @@ func (r SubmitTransactionResponse) StatusCode() int {
 	return 0
 }
 
-// GetSlotsWithResponse request returning *GetSlotsResponse
-func (c *ClientWithResponses) GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error) {
-	rsp, err := c.GetSlots(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetSlotsResponse(rsp)
-}
-
 // GetFeeWithResponse request returning *GetFeeResponse
 func (c *ClientWithResponses) GetFeeWithResponse(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*GetFeeResponse, error) {
 	rsp, err := c.GetFee(ctx, params, reqEditors...)
@@ -648,6 +639,15 @@ func (c *ClientWithResponses) ReserveBlockspaceWithResponse(ctx context.Context,
 	return ParseReserveBlockspaceResponse(rsp)
 }
 
+// GetSlotsWithResponse request returning *GetSlotsResponse
+func (c *ClientWithResponses) GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error) {
+	rsp, err := c.GetSlots(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSlotsResponse(rsp)
+}
+
 // SubmitTransactionWithBodyWithResponse request with arbitrary body returning *SubmitTransactionResponse
 func (c *ClientWithResponses) SubmitTransactionWithBodyWithResponse(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error) {
 	rsp, err := c.SubmitTransactionWithBody(ctx, params, contentType, body, reqEditors...)
@@ -663,32 +663,6 @@ func (c *ClientWithResponses) SubmitTransactionWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseSubmitTransactionResponse(rsp)
-}
-
-// ParseGetSlotsResponse parses an HTTP response from a GetSlotsWithResponse call
-func ParseGetSlotsResponse(rsp *http.Response) (*GetSlotsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetSlotsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []SlotInfo
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
 }
 
 // ParseGetFeeResponse parses an HTTP response from a GetFeeWithResponse call
@@ -776,6 +750,32 @@ func ParseReserveBlockspaceResponse(rsp *http.Response) (*ReserveBlockspaceRespo
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSlotsResponse parses an HTTP response from a GetSlotsWithResponse call
+func ParseGetSlotsResponse(rsp *http.Response) (*GetSlotsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSlotsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []SlotInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 

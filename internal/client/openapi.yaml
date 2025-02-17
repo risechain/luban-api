@@ -11,7 +11,7 @@ servers:
     url: ' https://taiyi.holesky.luban.wtf'
     
 paths:
-  /commitments/v1/epoch_info:
+  /commitments/v0/slots:
     get:
       operationId: getSlots
       tags:
@@ -30,7 +30,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/SlotInfo'
                   
-  /commitments/v1/preconf_fee:
+  /commitments/v0/estimate_fee:
     get:
       operationId: getFee
       tags:
@@ -69,7 +69,7 @@ paths:
                 code: 500
                 message: internal server error
                 
-  /commitments/v1/reserve_blockspace:
+  /commitments/v0/reserve_blockspace:
     post:
       operationId: reserveBlockspace
       tags:
@@ -136,7 +136,7 @@ paths:
                 message: internal server error
                     
                 
-  /commitments/v1/submit_transaction:
+  /commitments/v0/submit_transaction:
     post:
       operationId: submitTransaction
       tags:
