@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	u256 "github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -23,8 +25,8 @@ import (
 )
 
 type PreconfClient interface {
-	GetEpochInfo(ctx context.Context) ([]luban.SlotInfo, error)
-	GetPreconfFee(ctx context.Context, slot uint64) (uint64, error)
+	GetSlots(ctx context.Context) ([]luban.SlotInfo, error)
+	GetPreconfFee(ctx context.Context, slot uint64) (uint64, uint64, error)
 
 	ReserveBlockspace(
 		ctx context.Context,
@@ -55,7 +57,7 @@ func NewPreconfTxMgr(l log.Logger, backend txmgr.ETHBackend, cfg *txmgr.Config, 
 }
 
 func (m *PreconfTxMgr) getEpochForCandidate(ctx context.Context, candidate *txmgr.TxCandidate) (uint64, error) {
-	slots, err := m.client.GetEpochInfo(ctx)
+	slots, err := m.client.GetSlots(ctx)
 	// TODO: retry here or on a preconf client side?
 	if err != nil {
 		return 0, fmt.Errorf("geting epoch info for preconf failed: %w", err)
@@ -96,12 +98,25 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 			return nil, err
 		}
 
+		gasPrice, blobPrice, err := m.client.GetPreconfFee(ctx, slot)
+		if err != nil {
+			return nil, err
+		}
+
+		// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+		gas := u256.NewInt(candidate.GasLimit)
+		gas = gas.Mul(gas, u256.NewInt(gasPrice))
+		blob := u256.NewInt(uint64(nBlobs))
+		blob = blob.Mul(blob, u256.NewInt(blobPrice))
+		deposit := gas.Add(gas, blob).Div(gas, u256.NewInt(2))
+
 		resp, err := m.client.ReserveBlockspace(ctx, luban.ReserveBlockSpaceRequest{
-			Id:         uuid.New(),
-			TxHash:     tx.Hash(),
 			BlobCount:  nBlobs,
+			Deposit:    hexutil.U256(*deposit),
 			GasLimit:   candidate.GasLimit,
 			TargetSlot: slot,
+			// Tip is actually the same as deposit
+			Tip: hexutil.U256(*deposit),
 		})
 		if err != nil {
 			m.l.Warn("Reserving blockspace for tx failed. Someone probably took our slot. Retrying...", "err", err)

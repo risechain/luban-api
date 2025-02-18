@@ -13,16 +13,35 @@ import (
 	"net/url"
 	"strings"
 
+	geth_hexutil "github.com/ethereum/go-ethereum/common/hexutil"
+	geth_core_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// PreconfFeeResponse denominated in wei
+type PreconfFeeResponse struct {
+	BlobGasFee uint64 `json:"blob_gas_fee"`
+	GasFee     uint64 `json:"gas_fee"`
+}
+
 // ReserveBlockSpaceRequest defines model for ReserveBlockSpaceRequest.
 type ReserveBlockSpaceRequest struct {
-	BlobCount     uint32 `json:"blob_count"`
-	EscrowDeposit uint64 `json:"escrow_deposit"`
-	GasLimit      uint64 `json:"gas_limit"`
-	TargetSlot    uint64 `json:"target_slot"`
+	BlobCount uint32 `json:"blob_count"`
+
+	// Deposit This is the amount deducted from the user's escrow balance when the user fails to submit a transaction for the allocated blockspace.
+	//
+	// The deposit is calculated as follows:
+	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+	Deposit    geth_hexutil.U256 `json:"deposit"`
+	GasLimit   uint64            `json:"gas_limit"`
+	TargetSlot uint64            `json:"target_slot"`
+
+	// Tip This is the amount deducted from the user's escrow balance along with `[deposit]` when the user submits a transaction for the allocated blockspace.
+	//
+	// The tip is calculated as follows:
+	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+	Tip geth_hexutil.U256 `json:"tip"`
 }
 
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.
@@ -43,8 +62,8 @@ type SlotInfo struct {
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
 type SubmitTransactionRequest struct {
-	RequestId   openapi_types.UUID `json:"request_id"`
-	Transaction string             `json:"transaction"`
+	RequestId   openapi_types.UUID          `json:"request_id"`
+	Transaction geth_core_types.Transaction `json:"transaction"`
 }
 
 // GetFeeParams defines parameters for GetFee.
@@ -496,7 +515,7 @@ func (r GetSlotsResponse) StatusCode() int {
 type GetFeeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *uint64
+	JSON200      *PreconfFeeResponse
 	JSON500      *struct {
 		// Code Either specific error code in case of invalid request or http status code
 		Code *float32 `json:"code,omitempty"`
@@ -687,7 +706,7 @@ func ParseGetFeeResponse(rsp *http.Response) (*GetFeeResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest uint64
+		var dest PreconfFeeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
