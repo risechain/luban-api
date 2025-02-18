@@ -33,7 +33,7 @@ type PreconfClient interface {
 		req luban.ReserveBlockSpaceRequest,
 	) (*luban.ReserveBlockSpaceResponse, error)
 
-	SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx types.Transaction) error
+	SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx *types.Transaction) error
 }
 
 type PreconfTxMgr struct {
@@ -123,7 +123,7 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 			continue
 		}
 
-		err = m.client.SubmitTransaction(ctx, resp.RequestId, *tx)
+		err = m.client.SubmitTransaction(ctx, resp.RequestId, tx)
 		if err != nil {
 			m.l.Error("Sending preconfed tx failed. Slashing preconfer...", "err", err)
 			// TODO: slash preconfer

@@ -258,7 +258,7 @@ func TestSubmitTxDigest(t *testing.T) {
 	signer := types.LatestSignerForChainID(setup.ChainId)
 	tx := types.MustSignNewTx(setup.Key, signer, txMessage)
 	fmt.Printf("TX: %v\n", tx)
-	err = setup.Preconfer.SubmitTransaction(setup.ctx, id, *tx)
+	err = setup.Preconfer.SubmitTransaction(setup.ctx, id, tx)
 	if err != nil {
 		panic(err)
 	}

@@ -70,7 +70,9 @@ func (cl *Client) ReserveBlockspace(
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	signature := internal.ReserveBlockspaceParams{sig}
+	signature := internal.ReserveBlockspaceParams{
+		XLubanSignature: sig,
+	}
 	body := internal.ReserveBlockSpaceRequest(req)
 	resp, err := cl.ClientWithResponses.ReserveBlockspaceWithResponse(ctx, &signature, body)
 	if err != nil {
@@ -92,18 +94,25 @@ func (cl *Client) signSubmitTx(reqId uuid.UUID, tx *types.Transaction) (string, 
 }
 
 // TODO: Handle slashing and everything
-func (cl *Client) SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx types.Transaction) error {
-	sig, err := cl.signSubmitTx(reqId, &tx)
+func (cl *Client) SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx *types.Transaction) error {
+	sig, err := cl.signSubmitTx(reqId, tx)
 	if err != nil {
 		return err
 	}
 
-	params := internal.SubmitTransactionParams{sig}
-	req := internal.SubmitTransactionRequest{reqId, &tx}
+	params := internal.SubmitTransactionParams{
+		XLubanSignature: sig,
+	}
+	req := internal.SubmitTransactionRequest{
+		RequestId:   reqId,
+		Transaction: tx,
+	}
 	resp, err := cl.SubmitTransactionWithResponse(ctx, &params, req)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Response %#v\n", resp)
+	fmt.Printf("Response %#v\n", string(resp.Body))
 	if resp.JSON200 == nil {
 		return fmt.Errorf("SubmitTransaction return code %v", resp.Status())
 	}
