@@ -65,26 +65,26 @@ func (cl *Client) signReserveBlockspace(req *types.ReserveBlockSpaceRequest) (st
 func (cl *Client) ReserveBlockspace(
 	ctx context.Context,
 	req types.ReserveBlockSpaceRequest,
-) (*types.ReserveBlockSpaceResponse, error) {
+) (uuid.UUID, error) {
 	sig, err := cl.signReserveBlockspace(&req)
 	if err != nil {
-		return nil, err
+		return uuid.UUID{}, err
 	}
 	signature := internal.ReserveBlockspaceParams{sig}
 	body := internal.ReserveBlockSpaceRequest(req)
 	resp, err := cl.ClientWithResponses.ReserveBlockspaceWithResponse(ctx, &signature, body)
 	if err != nil {
-		return nil, err
+		return uuid.UUID{}, err
 	}
+	fmt.Printf("Response %#v\n", string(resp.Body))
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("ReserveBlockspace return code %v", resp.Status())
+		return uuid.UUID{}, fmt.Errorf("ReserveBlockspace return code %v", resp.Status())
 	}
-	response := types.ReserveBlockSpaceResponse{resp.JSON200.RequestId, resp.JSON200.Signature}
-	return &response, nil
+	return uuid.UUID(*resp.JSON200), nil
 }
 
 func (cl *Client) signSubmitTx(reqId uuid.UUID, tx *types.Transaction) (string, error) {
-	signature, err := crypto.Sign(types.SubmitTxDigest(reqId, tx).Bytes(), &cl.key)
+	signature, err := crypto.Sign(types.SubmitTxDigest(reqId, tx).Bytes(), cl.key)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +99,7 @@ func (cl *Client) SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx typ
 	}
 
 	params := internal.SubmitTransactionParams{sig}
-	req := internal.SubmitTransactionRequest{reqId, tx}
+	req := internal.SubmitTransactionRequest{reqId, &tx}
 	resp, err := cl.SubmitTransactionWithResponse(ctx, &params, req)
 	if err != nil {
 		return err

@@ -45,12 +45,7 @@ type ReserveBlockSpaceRequest struct {
 }
 
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.
-type ReserveBlockSpaceResponse struct {
-	RequestId openapi_types.UUID `json:"request_id"`
-
-	// Signature An ECDSA signature signed over request body and request id by the gateway
-	Signature string `json:"signature"`
-}
+type ReserveBlockSpaceResponse = openapi_types.UUID
 
 // SlotInfo defines model for SlotInfo.
 type SlotInfo struct {
@@ -62,8 +57,8 @@ type SlotInfo struct {
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
 type SubmitTransactionRequest struct {
-	RequestId   openapi_types.UUID          `json:"request_id"`
-	Transaction geth_core_types.Transaction `json:"transaction"`
+	RequestId   openapi_types.UUID           `json:"request_id"`
+	Transaction *geth_core_types.Transaction `json:"transaction"`
 }
 
 // GetFeeJSONBody defines parameters for GetFee.
@@ -71,14 +66,14 @@ type GetFeeJSONBody = uint64
 
 // ReserveBlockspaceParams defines parameters for ReserveBlockspace.
 type ReserveBlockspaceParams struct {
-	// XTaiyiSignature An ECDSA signature from the user over fields of request body
-	XTaiyiSignature string `json:"x-taiyi-signature"`
+	// XLubanSignature An ECDSA signature from the user over fields of request body
+	XLubanSignature string `json:"x-luban-signature"`
 }
 
 // SubmitTransactionParams defines parameters for SubmitTransaction.
 type SubmitTransactionParams struct {
-	// XTaiyiSignature An ECDSA signature from the user over fields of body.
-	XTaiyiSignature string `json:"x-taiyi-signature"`
+	// XLubanSignature An ECDSA signature from the user over fields of body.
+	XLubanSignature string `json:"x-luban-signature"`
 }
 
 // GetFeeJSONRequestBody defines body for GetFee for application/json ContentType.
@@ -347,12 +342,12 @@ func NewReserveBlockspaceRequestWithBody(server string, params *ReserveBlockspac
 
 		var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, params.XTaiyiSignature)
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-luban-signature", runtime.ParamLocationHeader, params.XLubanSignature)
 		if err != nil {
 			return nil, err
 		}
 
-		req.Header.Set("x-taiyi-signature", headerParam0)
+		req.Header.Set("x-luban-signature", headerParam0)
 
 	}
 
@@ -427,12 +422,12 @@ func NewSubmitTransactionRequestWithBody(server string, params *SubmitTransactio
 
 		var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, params.XTaiyiSignature)
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-luban-signature", runtime.ParamLocationHeader, params.XLubanSignature)
 		if err != nil {
 			return nil, err
 		}
 
-		req.Header.Set("x-taiyi-signature", headerParam0)
+		req.Header.Set("x-luban-signature", headerParam0)
 
 	}
 
