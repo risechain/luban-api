@@ -17,11 +17,11 @@ import (
 type Client struct {
 	*internal.ClientWithResponses
 
-	key ecdsa.PrivateKey
+	key *ecdsa.PrivateKey
 }
 
 // FIXME: reexport options
-func NewClient(server string, key ecdsa.PrivateKey, opts ...internal.ClientOption) (*Client, error) {
+func NewClient(server string, key *ecdsa.PrivateKey, opts ...internal.ClientOption) (*Client, error) {
 	cl, err := internal.NewClientWithResponses(server, opts...)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (cl *Client) GetPreconfFee(ctx context.Context, slot uint64) (uint64, uint6
 }
 
 func (cl *Client) signReserveBlockspace(req *types.ReserveBlockSpaceRequest) (string, error) {
-	signature, err := crypto.Sign(req.Digest().Bytes(), &cl.key)
+	signature, err := crypto.Sign(req.Digest().Bytes(), cl.key)
 	if err != nil {
 		return "", err
 	}
