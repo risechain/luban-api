@@ -78,7 +78,6 @@ func (cl *Client) ReserveBlockspace(
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	fmt.Printf("Response %#v\n", string(resp.Body))
 	if resp.JSON200 == nil {
 		return uuid.UUID{}, fmt.Errorf("ReserveBlockspace return code %v", resp.Status())
 	}
@@ -111,8 +110,6 @@ func (cl *Client) SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx *ty
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Response %#v\n", resp)
-	fmt.Printf("Response %#v\n", string(resp.Body))
 	if resp.JSON200 == nil {
 		return fmt.Errorf("SubmitTransaction return code %v", resp.Status())
 	}

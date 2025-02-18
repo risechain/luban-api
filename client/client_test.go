@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
+	"time"
 
 	u256 "github.com/holiman/uint256"
 
@@ -63,8 +64,6 @@ func (t *testSetup) getHeadSlot() (uint64, error) {
 		} `json:"data"`
 	}
 
-	fmt.Printf("Response %+#v\n", resp)
-
 	// Decode the JSON response directly into the struct
 	if err := json.NewDecoder(resp.Body).Decode(&syncingResponse); err != nil {
 		return 0, fmt.Errorf("failed to decode JSON: %w", err)
@@ -75,8 +74,6 @@ func (t *testSetup) getHeadSlot() (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid head_slot value: %w", err)
 	}
-
-	fmt.Printf("Slot %d\n", headSlot)
 
 	return headSlot, nil
 }
@@ -257,9 +254,35 @@ func TestSubmitTxDigest(t *testing.T) {
 	}
 	signer := types.LatestSignerForChainID(setup.ChainId)
 	tx := types.MustSignNewTx(setup.Key, signer, txMessage)
-	fmt.Printf("TX: %v\n", tx)
 	err = setup.Preconfer.SubmitTransaction(setup.ctx, id, tx)
 	if err != nil {
 		panic(err)
 	}
+
+	head, err = setup.getHeadSlot()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Waiting for slot %d (head is %d)\n", slot, head)
+	for head < slot + 1 {
+		head, err = setup.getHeadSlot()
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(12 * time.Second)
+	}
+
+	otherTx, pending, err := setup.Rpc.TransactionByHash(setup.ctx, tx.Hash())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("TX: %#+v\n", otherTx)
+	fmt.Printf("pending: %v\n", pending)
+
+	receipt, err := setup.Rpc.TransactionReceipt(setup.ctx, tx.Hash())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Tx was confirmed. Receipt: %#+v", receipt)
+
 }
