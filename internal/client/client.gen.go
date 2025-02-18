@@ -61,6 +61,21 @@ type SubmitTransactionRequest struct {
 	Transaction *geth_core_types.Transaction `json:"transaction"`
 }
 
+// SubmitTxResponse defines model for SubmitTxResponse.
+type SubmitTxResponse struct {
+	Data struct {
+		Commitment struct {
+			R       string `json:"r"`
+			S       string `json:"s"`
+			V       string `json:"v"`
+			YParity string `json:"yParity"`
+		} `json:"commitment"`
+		RequestId openapi_types.UUID `json:"request_id"`
+	} `json:"data"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
+}
+
 // GetFeeJSONBody defines parameters for GetFee.
 type GetFeeJSONBody = uint64
 
@@ -586,7 +601,7 @@ func (r GetSlotsResponse) StatusCode() int {
 type SubmitTransactionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *string
+	JSON200      *SubmitTxResponse
 	JSON400      *struct {
 		// Code Either specific error code in case of invalid request or http status code
 		Code float32 `json:"code"`
@@ -811,7 +826,7 @@ func ParseSubmitTransactionResponse(rsp *http.Response) (*SubmitTransactionRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest string
+		var dest SubmitTxResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
