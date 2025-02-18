@@ -30,22 +30,23 @@ paths:
                 items:
                   $ref: '#/components/schemas/SlotInfo'
                   
-  /commitments/v0/estimate_fee:
-    get:
+  /commitments/v0/preconf_fee:
+    post:
       operationId: getFee
       tags:
         - v1
       summary: Returns a fee quoted in "wei" per gas
       description: |
         * Used to fetch fee
-      parameters:
-        - schema:
-            type: integer
-            format: uint64
-          in: query
-          name: slot
-          description: slot to fetch fee for
-          required: true
+      requestBody:
+        description: Reserve blockspace request
+        required: true
+        content:
+          application/json:
+            schema:
+              type: integer
+              format: uint64
+              example: 53920
       responses:
         '200': 
           description: Success

@@ -43,7 +43,7 @@ func (cl *Client) GetSlots(ctx context.Context) ([]types.SlotInfo, error) {
 
 // First one is gas, second one for blob
 func (cl *Client) GetPreconfFee(ctx context.Context, slot uint64) (uint64, uint64, error) {
-	resp, err := cl.ClientWithResponses.GetFeeWithResponse(ctx, &internal.GetFeeParams{slot})
+	resp, err := cl.ClientWithResponses.GetFeeWithResponse(ctx, slot)
 	if err != nil {
 		return 0, 0, err
 	}
