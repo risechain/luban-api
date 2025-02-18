@@ -4,8 +4,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
+	"strconv"
 	"testing"
 
 	u256 "github.com/holiman/uint256"
@@ -30,7 +33,52 @@ type testSetup struct {
 	Key       *ecdsa.PrivateKey
 	Preconfer *Client
 	ChainId   *big.Int
+	beaconUrl string
 	ctx       context.Context
+}
+
+func (t *testSetup) getHeadSlot() (uint64, error) {
+	url := fmt.Sprintf("%s/eth/v1/node/syncing", t.beaconUrl)
+
+	// Make the HTTP GET request
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, fmt.Errorf("failed to make GET request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check for non-200 status codes
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// Define a struct to match the JSON structure
+	var syncingResponse struct {
+		Data struct {
+			HeadSlot     string `json:"head_slot"`
+			SyncDistance string `json:"sync_distance"`
+			IsSyncing    bool   `json:"is_syncing"`
+			IsOptimistic bool   `json:"is_optimistic"`
+			ELOffline    bool   `json:"el_offline"`
+		} `json:"data"`
+	}
+
+	fmt.Printf("Response %+#v\n", resp)
+
+	// Decode the JSON response directly into the struct
+	if err := json.NewDecoder(resp.Body).Decode(&syncingResponse); err != nil {
+		return 0, fmt.Errorf("failed to decode JSON: %w", err)
+	}
+
+	// Convert the head_slot to uint64
+	headSlot, err := strconv.ParseUint(syncingResponse.Data.HeadSlot, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid head_slot value: %w", err)
+	}
+
+	fmt.Printf("Slot %d\n", headSlot)
+
+	return headSlot, nil
 }
 
 func (t *testSetup) Balance() *big.Int {
@@ -70,7 +118,7 @@ func (t *testSetup) Deposit(amount *big.Int) {
 	fmt.Printf("Receipt: %v\n", receipt)
 }
 
-func newSetup(key, escrowAddr, gateway, rpcUrl string, chainId *big.Int) *testSetup {
+func newSetup(key, escrowAddr, gateway, beacon, rpcUrl string, chainId *big.Int) *testSetup {
 	ecdsa, err := crypto.HexToECDSA(key)
 	if err != nil {
 		panic(err)
@@ -103,6 +151,7 @@ func newSetup(key, escrowAddr, gateway, rpcUrl string, chainId *big.Int) *testSe
 		Key:       ecdsa,
 		Preconfer: preconfer,
 		ChainId:   chainId,
+		beaconUrl: beacon,
 		ctx:       context.Background(),
 	}
 }
@@ -112,6 +161,7 @@ func newTestSetup() *testSetup {
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f292",
 		"894B19A54A829b00Ad9F1394DD82cB6746531ce0",
 		"https://gateway.taiyi-devnet-0.preconfs.org",
+		"https://bn.bootnode-1.taiyi-devnet-0.preconfs.org",
 		"https://rpc.bootnode-1.taiyi-devnet-0.preconfs.org",
 		big.NewInt(7028081469),
 	)
@@ -150,8 +200,16 @@ func TestSubmitTxDigest(t *testing.T) {
 		panic(err)
 	}
 
+	head, err := setup.getHeadSlot()
+	if err != nil {
+		panic(err)
+	}
+
 	var slot uint64
 	for _, s := range slots {
+		if s.Slot <= head+1 {
+			continue
+		}
 		if s.GasAvailable < gas {
 			continue
 		}
