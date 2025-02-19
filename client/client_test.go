@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -76,6 +77,19 @@ func (t *testSetup) getHeadSlot() (uint64, error) {
 	}
 
 	return headSlot, nil
+}
+
+func (t *testSetup) getBaseFee() *big.Int {
+	bn, err := t.Rpc.BlockNumber(t.ctx)
+	if err != nil {
+		panic(err)
+	}
+	blk, err := t.Rpc.BlockByNumber(t.ctx, big.NewInt(int64(bn)))
+	if err != nil {
+		panic(err)
+	}
+	// XXX: assume mainnet
+	return eip1559.CalcBaseFee(params.MainnetChainConfig, blk.Header(), blk.Header().Time+1)
 }
 
 func (t *testSetup) Balance() *big.Int {
@@ -248,7 +262,7 @@ func TestSubmitTxDigest(t *testing.T) {
 		ChainID:   setup.ChainId,
 		To:        &addr,
 		GasTipCap: big.NewInt(0),
-		GasFeeCap: big.NewInt(0),
+		GasFeeCap: setup.getBaseFee(),
 		Gas:       gas,
 		Nonce:     nonce,
 	}
@@ -258,13 +272,14 @@ func TestSubmitTxDigest(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("Submitted tx with hash: %v\n", tx.Hash())
 
 	head, err = setup.getHeadSlot()
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("Waiting for slot %d (head is %d)\n", slot, head)
-	for head < slot + 1 {
+	for head < slot+1 {
 		head, err = setup.getHeadSlot()
 		if err != nil {
 			panic(err)
@@ -283,6 +298,5 @@ func TestSubmitTxDigest(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Tx was confirmed. Receipt: %#+v", receipt)
-
+	fmt.Printf("Tx was confirmed. Receipt: %#+v\n", receipt)
 }
