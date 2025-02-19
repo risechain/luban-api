@@ -19,11 +19,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 
 	"github.com/risechain/luban-api/escrow"
 	luban "github.com/risechain/luban-api/types"
@@ -90,6 +94,18 @@ func (t *testSetup) getBaseFee() *big.Int {
 	}
 	// XXX: assume mainnet
 	return eip1559.CalcBaseFee(params.MainnetChainConfig, blk.Header(), blk.Header().Time+1)
+}
+
+func (t *testSetup) getBlobFee() *big.Int {
+	bn, err := t.Rpc.BlockNumber(t.ctx)
+	if err != nil {
+		panic(err)
+	}
+	blk, err := t.Rpc.BlockByNumber(t.ctx, big.NewInt(int64(bn)))
+	if err != nil {
+		panic(err)
+	}
+	return eip4844.CalcBlobFee(*blk.Header().ExcessBlobGas)
 }
 
 func (t *testSetup) Balance() *big.Int {
@@ -285,6 +301,135 @@ func TestSubmitTxDigest(t *testing.T) {
 			panic(err)
 		}
 		time.Sleep(12 * time.Second)
+	}
+
+	otherTx, pending, err := setup.Rpc.TransactionByHash(setup.ctx, tx.Hash())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("TX: %#+v\n", otherTx)
+	fmt.Printf("pending: %v\n", pending)
+
+	receipt, err := setup.Rpc.TransactionReceipt(setup.ctx, tx.Hash())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Tx was confirmed. Receipt: %#+v\n", receipt)
+}
+
+func TestSubmitBlob(t *testing.T) {
+	setup := newTestSetup()
+
+	balance := setup.Balance()
+	fmt.Printf("Our balance is %v\n", balance)
+
+	if balance.Cmp(big.NewInt(params.Ether)) < 1 {
+		ethBalance, err := setup.Rpc.PendingBalanceAt(setup.ctx, crypto.PubkeyToAddress(setup.Key.PublicKey))
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Our eth balance is %v\n", ethBalance)
+
+		setup.Deposit(big.NewInt(params.Ether))
+	}
+
+	blobs := []*eth.Blob{&eth.Blob{}}
+	sidecar, blobHashes, err := txmgr.MakeSidecar(blobs)
+	if err != nil {
+		panic(err)
+	}
+
+	addr := crypto.PubkeyToAddress(setup.Key.PublicKey)
+	slots, err := setup.Preconfer.GetSlots(setup.ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	head, err := setup.getHeadSlot()
+	if err != nil {
+		panic(err)
+	}
+
+	var slot uint64
+	for _, s := range slots {
+		if s.Slot <= head+1 {
+			continue
+		}
+		if s.BlobsAvailable == 0 {
+			continue
+		}
+		slot = s.Slot
+		break
+	}
+	if slot == 0 {
+		panic("No empty slots")
+	}
+
+	gasPrice, blobPrice, err := setup.Preconfer.GetPreconfFee(setup.ctx, slot)
+	if err != nil {
+		panic(err)
+	}
+
+	callMsg := ethereum.CallMsg{
+		To:         &addr,
+		BlobHashes: blobHashes,
+	}
+	gasEstimate, err := setup.Rpc.EstimateGas(setup.ctx, callMsg)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Price is: %v %v\n", gasPrice, blobPrice)
+
+	// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
+	gas := u256.NewInt(gasEstimate)
+	gas = gas.Mul(gas, u256.NewInt(gasPrice))
+	blob := u256.NewInt(blobPrice)
+	deposit := gas.Add(gas, blob).Div(gas, u256.NewInt(2))
+
+	id, err := setup.Preconfer.ReserveBlockspace(setup.ctx, luban.ReserveBlockSpaceRequest{
+		Deposit:    hexutil.U256(*deposit),
+		Tip:        hexutil.U256(*deposit),
+		BlobCount:  1,
+		GasLimit:   gasEstimate,
+		TargetSlot: slot,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	nonce, err := setup.Rpc.NonceAt(setup.ctx, addr, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	txMessage := &types.BlobTx{
+		To:         addr,
+		BlobHashes: blobHashes,
+		Sidecar:    sidecar,
+		Gas:        gasEstimate,
+		GasFeeCap:  u256.MustFromBig(setup.getBaseFee()),
+		BlobFeeCap: u256.MustFromBig(setup.getBlobFee()),
+		Nonce:      nonce,
+	}
+	signer := types.LatestSignerForChainID(setup.ChainId)
+	tx := types.MustSignNewTx(setup.Key, signer, txMessage)
+	err = setup.Preconfer.SubmitTransaction(setup.ctx, id, tx)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Submitted tx with hash: %v\n", tx.Hash())
+
+	head, err = setup.getHeadSlot()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Waiting for slot %d (head is %d)\n", slot, head)
+	for head < slot+1 {
+		head, err = setup.getHeadSlot()
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(time.Second)
 	}
 
 	otherTx, pending, err := setup.Rpc.TransactionByHash(setup.ctx, tx.Hash())
