@@ -2,9 +2,12 @@ package txmgr
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -50,16 +53,58 @@ type PreconfTxMgr struct {
 	cfg *txmgr.Config
 
 	nonce     *uint64
+	beaconUrl string
 	nonceLock sync.RWMutex
 }
 
-func NewPreconfTxMgr(l log.Logger, backend ETHBackend, cfg *txmgr.Config, client PreconfClient) *PreconfTxMgr {
+func NewPreconfTxMgr(l log.Logger, backend ETHBackend, cfg *txmgr.Config, client PreconfClient, beaconUrl string) *PreconfTxMgr {
 	return &PreconfTxMgr{
-		backend: backend,
-		client:  client,
-		l:       l,
-		cfg:     cfg,
+		backend:   backend,
+		client:    client,
+		l:         l,
+		cfg:       cfg,
+		beaconUrl: beaconUrl,
 	}
+}
+
+func (m *PreconfTxMgr) getHeadSlot() (uint64, error) {
+	url := fmt.Sprintf("%s/eth/v1/node/syncing", m.beaconUrl)
+
+	// Make the HTTP GET request
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, fmt.Errorf("failed to make GET request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check for non-200 status codes
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// Define a struct to match the JSON structure
+	var syncingResponse struct {
+		Data struct {
+			HeadSlot     string `json:"head_slot"`
+			SyncDistance string `json:"sync_distance"`
+			IsSyncing    bool   `json:"is_syncing"`
+			IsOptimistic bool   `json:"is_optimistic"`
+			ELOffline    bool   `json:"el_offline"`
+		} `json:"data"`
+	}
+
+	// Decode the JSON response directly into the struct
+	if err := json.NewDecoder(resp.Body).Decode(&syncingResponse); err != nil {
+		return 0, fmt.Errorf("failed to decode JSON: %w", err)
+	}
+
+	// Convert the head_slot to uint64
+	headSlot, err := strconv.ParseUint(syncingResponse.Data.HeadSlot, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid head_slot value: %w", err)
+	}
+
+	return headSlot, nil
 }
 
 func (m *PreconfTxMgr) getEpochForCandidate(ctx context.Context, candidate *txmgr.TxCandidate) (uint64, error) {
@@ -69,9 +114,17 @@ func (m *PreconfTxMgr) getEpochForCandidate(ctx context.Context, candidate *txmg
 		return 0, fmt.Errorf("geting epoch info for preconf failed: %w", err)
 	}
 
+	head, err := m.getHeadSlot()
+	if err != nil {
+		return 0, fmt.Errorf("geting head slot for preconf failed: %w", err)
+	}
+
 	nBlobs := uint32(len(candidate.Blobs))
 	slot := uint64(0)
 	for _, s := range slots {
+		if s.Slot <= head+1 {
+			continue
+		}
 		if s.BlobsAvailable < nBlobs {
 			continue
 		}
@@ -95,10 +148,12 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 		return nil, fmt.Errorf("preparing tx failed: %w", err)
 	}
 
+	var slot uint64
+
 	nBlobs := uint32(len(candidate.Blobs))
 
 	for {
-		slot, err := m.getEpochForCandidate(ctx, &candidate)
+		slot, err = m.getEpochForCandidate(ctx, &candidate)
 		// XXX: Figure out if we should wait till next slot or it should be fatal
 		if err != nil {
 			return nil, err
@@ -110,7 +165,7 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 		}
 
 		// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
-		gas := u256.NewInt(candidate.GasLimit)
+		gas := u256.NewInt(tx.Gas())
 		gas = gas.Mul(gas, u256.NewInt(gasPrice))
 		blob := u256.NewInt(uint64(nBlobs))
 		blob = blob.Mul(blob, u256.NewInt(blobPrice))
@@ -119,7 +174,7 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 		id, err := m.client.ReserveBlockspace(ctx, luban.ReserveBlockSpaceRequest{
 			BlobCount:  nBlobs,
 			Deposit:    hexutil.U256(*deposit),
-			GasLimit:   candidate.GasLimit,
+			GasLimit:   tx.Gas(),
 			TargetSlot: slot,
 			// Tip is actually the same as deposit
 			Tip: hexutil.U256(*deposit),
@@ -138,9 +193,16 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 		break
 	}
 
-	// TODO: wait for tx to land on chain
+	head, err := m.getHeadSlot()
+	if err != nil {
+		return nil, err
+	}
+	for head < slot+1 {
+		time.Sleep(time.Second)
+		head, err = m.getHeadSlot()
+	}
 
-	return &types.Receipt{}, nil
+	return m.backend.TransactionReceipt(ctx, tx.Hash())
 }
 
 // Copied from op-service/txmgr/txmgr.go
