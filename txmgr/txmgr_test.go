@@ -24,8 +24,9 @@ func TestTxmgr(t *testing.T) {
 	l := testlog.Logger(t, log.LevelCrit)
 	key, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f292")
 	chainId := big.NewInt(7028081469)
+	addr := crypto.PubkeyToAddress(key.PublicKey)
 	cfg := &txmgr.Config{
-		From:           crypto.PubkeyToAddress(key.PublicKey),
+		From:           addr,
 		NetworkTimeout: time.Second,
 		Signer: func(ctx context.Context, from common.Address, tx *types.Transaction) (*types.Transaction, error) {
 			signer := types.LatestSignerForChainID(chainId)
@@ -44,9 +45,9 @@ func TestTxmgr(t *testing.T) {
 	}
 
 	blobs := []*eth.Blob{&eth.Blob{}}
-	txmanager := NewPreconfTxMgr(l, rpc, cfg, preconfer)
+	txmanager := NewPreconfTxMgr(l, rpc, cfg, preconfer, "https://bn.bootnode-1.taiyi-devnet-0.preconfs.org")
 
-	cand := txmgr.TxCandidate{Blobs: blobs}
+	cand := txmgr.TxCandidate{Blobs: blobs, To: &addr}
 	_, err = txmanager.Send(context.Background(), cand)
 	if err != nil {
 		panic(err)
