@@ -14,8 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/ethereum-optimism/optimism/op-service/errutil"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
@@ -36,8 +39,14 @@ type PreconfClient interface {
 	SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx *types.Transaction) error
 }
 
+type ETHBackend interface {
+	txmgr.ETHBackend
+
+	BlockByNumber(ctx context.Context, num *big.Int) (*types.Block, error)
+}
+
 type PreconfTxMgr struct {
-	backend txmgr.ETHBackend
+	backend ETHBackend
 	client  PreconfClient
 
 	l   log.Logger
@@ -47,7 +56,7 @@ type PreconfTxMgr struct {
 	nonceLock sync.RWMutex
 }
 
-func NewPreconfTxMgr(l log.Logger, backend txmgr.ETHBackend, cfg *txmgr.Config, client PreconfClient) *PreconfTxMgr {
+func NewPreconfTxMgr(l log.Logger, backend ETHBackend, cfg *txmgr.Config, client PreconfClient) *PreconfTxMgr {
 	return &PreconfTxMgr{
 		backend: backend,
 		client:  client,
@@ -154,6 +163,22 @@ func (m *PreconfTxMgr) prepare(ctx context.Context, candidate txmgr.TxCandidate)
 	return tx, nil
 }
 
+func (m *PreconfTxMgr) getBaseFees(ctx context.Context) (*big.Int, *big.Int, error) {
+	bn, err := m.backend.BlockNumber(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get last block number: %w", err)
+	}
+	blk, err := m.backend.BlockByNumber(ctx, big.NewInt(int64(bn)))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get latest block (#%d): %w", bn, err)
+	}
+	// XXX: assume mainnet
+	baseFee := eip1559.CalcBaseFee(params.MainnetChainConfig, blk.Header(), blk.Header().Time+1)
+	blobFee := eip4844.CalcBlobFee(*blk.Header().ExcessBlobGas)
+
+	return baseFee.Mul(baseFee, big.NewInt(2)), blobFee.Mul(blobFee, big.NewInt(2)), nil
+}
+
 // craftTx creates the signed transaction
 // It queries L1 for the current fee market conditions as well as for the nonce.
 // NOTE: This method SHOULD NOT publish the resulting transaction.
@@ -182,7 +207,6 @@ func (m *PreconfTxMgr) craftTx(ctx context.Context, candidate txmgr.TxCandidate)
 			From:      m.cfg.From,
 			To:        candidate.To,
 			GasTipCap: big.NewInt(0),
-			GasFeeCap: big.NewInt(0),
 			Data:      candidate.TxData,
 			Value:     candidate.Value,
 		}
@@ -197,22 +221,26 @@ func (m *PreconfTxMgr) craftTx(ctx context.Context, candidate txmgr.TxCandidate)
 		gasLimit = gas
 	}
 
+	baseFee, blobFee, err := m.getBaseFees(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get base fees: %w", err)
+	}
+
 	var txMessage types.TxData
 	if sidecar != nil {
 		txMessage = &types.BlobTx{
 			To:         *candidate.To,
 			Data:       candidate.TxData,
 			Gas:        gasLimit,
+			GasFeeCap:  u256.MustFromBig(baseFee),
+			BlobFeeCap: u256.MustFromBig(blobFee),
 			BlobHashes: blobHashes,
 			Sidecar:    sidecar,
 		}
 	} else {
 		txMessage = &types.DynamicFeeTx{
-			// TODO: get chain id somewhere
-			// ChainID:   m.chainID,
 			To:        candidate.To,
-			GasTipCap: big.NewInt(0),
-			GasFeeCap: big.NewInt(0),
+			GasFeeCap: baseFee,
 			Value:     candidate.Value,
 			Data:      candidate.TxData,
 			Gas:       gasLimit,
