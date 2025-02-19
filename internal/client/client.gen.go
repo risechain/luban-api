@@ -45,12 +45,7 @@ type ReserveBlockSpaceRequest struct {
 }
 
 // ReserveBlockSpaceResponse defines model for ReserveBlockSpaceResponse.
-type ReserveBlockSpaceResponse struct {
-	RequestId openapi_types.UUID `json:"request_id"`
-
-	// Signature An ECDSA signature signed over request body and request id by the gateway
-	Signature string `json:"signature"`
-}
+type ReserveBlockSpaceResponse = openapi_types.UUID
 
 // SlotInfo defines model for SlotInfo.
 type SlotInfo struct {
@@ -62,27 +57,42 @@ type SlotInfo struct {
 
 // SubmitTransactionRequest defines model for SubmitTransactionRequest.
 type SubmitTransactionRequest struct {
-	RequestId   openapi_types.UUID          `json:"request_id"`
-	Transaction geth_core_types.Transaction `json:"transaction"`
+	RequestId   openapi_types.UUID           `json:"request_id"`
+	Transaction *geth_core_types.Transaction `json:"transaction"`
 }
 
-// GetFeeParams defines parameters for GetFee.
-type GetFeeParams struct {
-	// Slot slot to fetch fee for
-	Slot uint64 `form:"slot" json:"slot"`
+// SubmitTxResponse defines model for SubmitTxResponse.
+type SubmitTxResponse struct {
+	Data struct {
+		Commitment struct {
+			R       string `json:"r"`
+			S       string `json:"s"`
+			V       string `json:"v"`
+			YParity string `json:"yParity"`
+		} `json:"commitment"`
+		RequestId openapi_types.UUID `json:"request_id"`
+	} `json:"data"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
 }
+
+// GetFeeJSONBody defines parameters for GetFee.
+type GetFeeJSONBody = uint64
 
 // ReserveBlockspaceParams defines parameters for ReserveBlockspace.
 type ReserveBlockspaceParams struct {
-	// XTaiyiSignature An ECDSA signature from the user over fields of request body
-	XTaiyiSignature string `json:"x-taiyi-signature"`
+	// XLubanSignature An ECDSA signature from the user over fields of request body
+	XLubanSignature string `json:"x-luban-signature"`
 }
 
 // SubmitTransactionParams defines parameters for SubmitTransaction.
 type SubmitTransactionParams struct {
-	// XTaiyiSignature An ECDSA signature from the user over fields of body.
-	XTaiyiSignature string `json:"x-taiyi-signature"`
+	// XLubanSignature An ECDSA signature from the user over fields of body.
+	XLubanSignature string `json:"x-luban-signature"`
 }
+
+// GetFeeJSONRequestBody defines body for GetFee for application/json ContentType.
+type GetFeeJSONRequestBody = GetFeeJSONBody
 
 // ReserveBlockspaceJSONRequestBody defines body for ReserveBlockspace for application/json ContentType.
 type ReserveBlockspaceJSONRequestBody = ReserveBlockSpaceRequest
@@ -163,16 +173,18 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetSlots request
-	GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetFeeWithBody request with any body
+	GetFeeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetFee request
-	GetFee(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetFee(ctx context.Context, body GetFeeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ReserveBlockspaceWithBody request with any body
 	ReserveBlockspaceWithBody(ctx context.Context, params *ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ReserveBlockspace(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSlots request
+	GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SubmitTransactionWithBody request with any body
 	SubmitTransactionWithBody(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -180,8 +192,8 @@ type ClientInterface interface {
 	SubmitTransaction(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSlotsRequest(c.Server)
+func (c *Client) GetFeeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFeeRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +204,8 @@ func (c *Client) GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetFee(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetFeeRequest(c.Server, params)
+func (c *Client) GetFee(ctx context.Context, body GetFeeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFeeRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -228,6 +240,18 @@ func (c *Client) ReserveBlockspace(ctx context.Context, params *ReserveBlockspac
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetSlots(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSlotsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) SubmitTransactionWithBody(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSubmitTransactionRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -252,35 +276,19 @@ func (c *Client) SubmitTransaction(ctx context.Context, params *SubmitTransactio
 	return c.Client.Do(req)
 }
 
-// NewGetSlotsRequest generates requests for GetSlots
-func NewGetSlotsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
+// NewGetFeeRequest calls the generic GetFee builder with application/json body
+func NewGetFeeRequest(server string, body GetFeeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
-
-	operationPath := fmt.Sprintf("/commitments/v1/epoch_info")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
+	bodyReader = bytes.NewReader(buf)
+	return NewGetFeeRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewGetFeeRequest generates requests for GetFee
-func NewGetFeeRequest(server string, params *GetFeeParams) (*http.Request, error) {
+// NewGetFeeRequestWithBody generates requests for GetFee with any type of body
+func NewGetFeeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -288,7 +296,7 @@ func NewGetFeeRequest(server string, params *GetFeeParams) (*http.Request, error
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/commitments/v1/preconf_fee")
+	operationPath := fmt.Sprintf("/commitments/v0/preconf_fee")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -298,28 +306,12 @@ func NewGetFeeRequest(server string, params *GetFeeParams) (*http.Request, error
 		return nil, err
 	}
 
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "slot", runtime.ParamLocationQuery, params.Slot); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -344,7 +336,7 @@ func NewReserveBlockspaceRequestWithBody(server string, params *ReserveBlockspac
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/commitments/v1/reserve_blockspace")
+	operationPath := fmt.Sprintf("/commitments/v0/reserve_blockspace")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -365,13 +357,40 @@ func NewReserveBlockspaceRequestWithBody(server string, params *ReserveBlockspac
 
 		var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, params.XTaiyiSignature)
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-luban-signature", runtime.ParamLocationHeader, params.XLubanSignature)
 		if err != nil {
 			return nil, err
 		}
 
-		req.Header.Set("x-taiyi-signature", headerParam0)
+		req.Header.Set("x-luban-signature", headerParam0)
 
+	}
+
+	return req, nil
+}
+
+// NewGetSlotsRequest generates requests for GetSlots
+func NewGetSlotsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/commitments/v0/slots")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -397,7 +416,7 @@ func NewSubmitTransactionRequestWithBody(server string, params *SubmitTransactio
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/commitments/v1/submit_transaction")
+	operationPath := fmt.Sprintf("/commitments/v0/submit_transaction")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -418,12 +437,12 @@ func NewSubmitTransactionRequestWithBody(server string, params *SubmitTransactio
 
 		var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-taiyi-signature", runtime.ParamLocationHeader, params.XTaiyiSignature)
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "x-luban-signature", runtime.ParamLocationHeader, params.XLubanSignature)
 		if err != nil {
 			return nil, err
 		}
 
-		req.Header.Set("x-taiyi-signature", headerParam0)
+		req.Header.Set("x-luban-signature", headerParam0)
 
 	}
 
@@ -473,43 +492,23 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetSlotsWithResponse request
-	GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error)
+	// GetFeeWithBodyWithResponse request with any body
+	GetFeeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*GetFeeResponse, error)
 
-	// GetFeeWithResponse request
-	GetFeeWithResponse(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*GetFeeResponse, error)
+	GetFeeWithResponse(ctx context.Context, body GetFeeJSONRequestBody, reqEditors ...RequestEditorFn) (*GetFeeResponse, error)
 
 	// ReserveBlockspaceWithBodyWithResponse request with any body
 	ReserveBlockspaceWithBodyWithResponse(ctx context.Context, params *ReserveBlockspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReserveBlockspaceResponse, error)
 
 	ReserveBlockspaceWithResponse(ctx context.Context, params *ReserveBlockspaceParams, body ReserveBlockspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*ReserveBlockspaceResponse, error)
 
+	// GetSlotsWithResponse request
+	GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error)
+
 	// SubmitTransactionWithBodyWithResponse request with any body
 	SubmitTransactionWithBodyWithResponse(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error)
 
 	SubmitTransactionWithResponse(ctx context.Context, params *SubmitTransactionParams, body SubmitTransactionJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error)
-}
-
-type GetSlotsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]SlotInfo
-}
-
-// Status returns HTTPResponse.Status
-func (r GetSlotsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetSlotsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
 }
 
 type GetFeeResponse struct {
@@ -577,10 +576,32 @@ func (r ReserveBlockspaceResponse) StatusCode() int {
 	return 0
 }
 
+type GetSlotsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]SlotInfo
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSlotsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSlotsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type SubmitTransactionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *string
+	JSON200      *SubmitTxResponse
 	JSON400      *struct {
 		// Code Either specific error code in case of invalid request or http status code
 		Code float32 `json:"code"`
@@ -613,18 +634,17 @@ func (r SubmitTransactionResponse) StatusCode() int {
 	return 0
 }
 
-// GetSlotsWithResponse request returning *GetSlotsResponse
-func (c *ClientWithResponses) GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error) {
-	rsp, err := c.GetSlots(ctx, reqEditors...)
+// GetFeeWithBodyWithResponse request with arbitrary body returning *GetFeeResponse
+func (c *ClientWithResponses) GetFeeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*GetFeeResponse, error) {
+	rsp, err := c.GetFeeWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetSlotsResponse(rsp)
+	return ParseGetFeeResponse(rsp)
 }
 
-// GetFeeWithResponse request returning *GetFeeResponse
-func (c *ClientWithResponses) GetFeeWithResponse(ctx context.Context, params *GetFeeParams, reqEditors ...RequestEditorFn) (*GetFeeResponse, error) {
-	rsp, err := c.GetFee(ctx, params, reqEditors...)
+func (c *ClientWithResponses) GetFeeWithResponse(ctx context.Context, body GetFeeJSONRequestBody, reqEditors ...RequestEditorFn) (*GetFeeResponse, error) {
+	rsp, err := c.GetFee(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -648,6 +668,15 @@ func (c *ClientWithResponses) ReserveBlockspaceWithResponse(ctx context.Context,
 	return ParseReserveBlockspaceResponse(rsp)
 }
 
+// GetSlotsWithResponse request returning *GetSlotsResponse
+func (c *ClientWithResponses) GetSlotsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSlotsResponse, error) {
+	rsp, err := c.GetSlots(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSlotsResponse(rsp)
+}
+
 // SubmitTransactionWithBodyWithResponse request with arbitrary body returning *SubmitTransactionResponse
 func (c *ClientWithResponses) SubmitTransactionWithBodyWithResponse(ctx context.Context, params *SubmitTransactionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitTransactionResponse, error) {
 	rsp, err := c.SubmitTransactionWithBody(ctx, params, contentType, body, reqEditors...)
@@ -663,32 +692,6 @@ func (c *ClientWithResponses) SubmitTransactionWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseSubmitTransactionResponse(rsp)
-}
-
-// ParseGetSlotsResponse parses an HTTP response from a GetSlotsWithResponse call
-func ParseGetSlotsResponse(rsp *http.Response) (*GetSlotsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetSlotsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []SlotInfo
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
 }
 
 // ParseGetFeeResponse parses an HTTP response from a GetFeeWithResponse call
@@ -782,6 +785,32 @@ func ParseReserveBlockspaceResponse(rsp *http.Response) (*ReserveBlockspaceRespo
 	return response, nil
 }
 
+// ParseGetSlotsResponse parses an HTTP response from a GetSlotsWithResponse call
+func ParseGetSlotsResponse(rsp *http.Response) (*GetSlotsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSlotsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []SlotInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseSubmitTransactionResponse parses an HTTP response from a SubmitTransactionWithResponse call
 func ParseSubmitTransactionResponse(rsp *http.Response) (*SubmitTransactionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -797,7 +826,7 @@ func ParseSubmitTransactionResponse(rsp *http.Response) (*SubmitTransactionRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest string
+		var dest SubmitTxResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

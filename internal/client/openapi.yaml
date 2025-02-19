@@ -11,7 +11,7 @@ servers:
     url: ' https://taiyi.holesky.luban.wtf'
     
 paths:
-  /commitments/v1/epoch_info:
+  /commitments/v0/slots:
     get:
       operationId: getSlots
       tags:
@@ -30,22 +30,23 @@ paths:
                 items:
                   $ref: '#/components/schemas/SlotInfo'
                   
-  /commitments/v1/preconf_fee:
-    get:
+  /commitments/v0/preconf_fee:
+    post:
       operationId: getFee
       tags:
         - v1
       summary: Returns a fee quoted in "wei" per gas
       description: |
         * Used to fetch fee
-      parameters:
-        - schema:
-            type: integer
-            format: uint64
-          in: query
-          name: slot
-          description: slot to fetch fee for
-          required: true
+      requestBody:
+        description: Reserve blockspace request
+        required: true
+        content:
+          application/json:
+            schema:
+              type: integer
+              format: uint64
+              example: 53920
       responses:
         '200': 
           description: Success
@@ -69,7 +70,7 @@ paths:
                 code: 500
                 message: internal server error
                 
-  /commitments/v1/reserve_blockspace:
+  /commitments/v0/reserve_blockspace:
     post:
       operationId: reserveBlockspace
       tags:
@@ -85,7 +86,7 @@ paths:
             pattern: '^0x[a-fA-F0-9]{130}$'
             example: '0x8a726dc1d89dc0b10a27130c562cce2d346f2bbac1af683d9b55632825e4abc0480bcf25276452a3c076f2a5d756c6deedd552cfc343dd34a5953835f4d7c8a71c'
           in: header
-          name: x-taiyi-signature
+          name: x-luban-signature
           description: An ECDSA signature from the user over fields of request body
           required: true
       requestBody:
@@ -136,7 +137,7 @@ paths:
                 message: internal server error
                     
                 
-  /commitments/v1/submit_transaction:
+  /commitments/v0/submit_transaction:
     post:
       operationId: submitTransaction
       tags:
@@ -148,7 +149,7 @@ paths:
         - schema:
             type: string
           in: header
-          name: x-taiyi-signature
+          name: x-luban-signature
           required: true
           description: An ECDSA signature from the user over fields of body.
       requestBody:
@@ -163,11 +164,7 @@ paths:
           content:
             application/json:
               schema:
-                type: string
-                format: hex
-                pattern: '^0x[a-fA-F0-9]{130}$'
-                description: An ECDSA signature signed by the gateway over the request body.
-                example: '0x8a726dc1d89dc0b10a27130c562cce2d346f2bbac1af683d9b55632825e4abc0480bcf25276452a3c076f2a5d756c6deedd552cfc343dd34a5953835f4d7c8a71c'
+                $ref: '#/components/schemas/SubmitTxResponse'
         '400':
           description: Error
           content:
@@ -214,7 +211,7 @@ components:
           example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
         transaction:
           type: string
-          x-go-type: geth_core_types.Transaction
+          x-go-type: "*geth_core_types.Transaction"
           x-go-type-import:
             path: github.com/ethereum/go-ethereum/core/types
             name: geth_core_types
@@ -268,21 +265,9 @@ components:
           minimum: 0
           maximum: 6
     ReserveBlockSpaceResponse:
-      type: object
-      required: 
-        - request_id
-        - signature
-      properties:
-        request_id:
-          type: string
-          format: uuid
-          example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
-        signature:
-          type: string
-          format: hex
-          pattern: '^0x[a-fA-F0-9]{130}$'
-          description: An ECDSA signature signed over request body and request id by the gateway
-          example: '0x8a726dc1d89dc0b10a27130c562cce2d346f2bbac1af683d9b55632825e4abc0480bcf25276452a3c076f2a5d756c6deedd552cfc343dd34a5953835f4d7c8a71c'
+      type: string
+      format: uuid
+      example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
     SlotInfo:
       type: object
       required: [slot, gas_available, blobs_available, constraints_availaible]
@@ -320,3 +305,33 @@ components:
           type: integer
           format: uint64
           example: 408014488
+    SubmitTxResponse:
+      type: object
+      required: [status, message, data]
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: object
+          required: [request_id, commitment]
+          properties:
+            request_id:
+              type: string
+              format: uuid
+              example: 0729a580-2240-11e6-9eb5-0002a5d5c51b
+            commitment:
+              type: object
+              required: [r, s, v, yParity]
+              properties:
+                r:
+                  type: string
+                  example: 0xd88bae971864b11759a073362f4bf5c5547bac3ee799a9391133c61dff171bd3
+                s:
+                  type: string
+                  example: 0x21d8afb3e039af1630b0fdcbfcc92b118dc8d6752292377d1ac045442af01f26
+                v:
+                  type: string
+                  example: 0x0
+                yParity:
+                  type: string
+                  example: 0x0

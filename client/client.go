@@ -17,11 +17,11 @@ import (
 type Client struct {
 	*internal.ClientWithResponses
 
-	key ecdsa.PrivateKey
+	key *ecdsa.PrivateKey
 }
 
 // FIXME: reexport options
-func NewClient(server string, key ecdsa.PrivateKey, opts ...internal.ClientOption) (*Client, error) {
+func NewClient(server string, key *ecdsa.PrivateKey, opts ...internal.ClientOption) (*Client, error) {
 	cl, err := internal.NewClientWithResponses(server, opts...)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (cl *Client) GetSlots(ctx context.Context) ([]types.SlotInfo, error) {
 
 // First one is gas, second one for blob
 func (cl *Client) GetPreconfFee(ctx context.Context, slot uint64) (uint64, uint64, error) {
-	resp, err := cl.ClientWithResponses.GetFeeWithResponse(ctx, &internal.GetFeeParams{slot})
+	resp, err := cl.ClientWithResponses.GetFeeWithResponse(ctx, slot)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -54,7 +54,7 @@ func (cl *Client) GetPreconfFee(ctx context.Context, slot uint64) (uint64, uint6
 }
 
 func (cl *Client) signReserveBlockspace(req *types.ReserveBlockSpaceRequest) (string, error) {
-	signature, err := crypto.Sign(req.Digest().Bytes(), &cl.key)
+	signature, err := crypto.Sign(req.Digest().Bytes(), cl.key)
 	if err != nil {
 		return "", err
 	}
@@ -65,26 +65,27 @@ func (cl *Client) signReserveBlockspace(req *types.ReserveBlockSpaceRequest) (st
 func (cl *Client) ReserveBlockspace(
 	ctx context.Context,
 	req types.ReserveBlockSpaceRequest,
-) (*types.ReserveBlockSpaceResponse, error) {
+) (uuid.UUID, error) {
 	sig, err := cl.signReserveBlockspace(&req)
 	if err != nil {
-		return nil, err
+		return uuid.UUID{}, err
 	}
-	signature := internal.ReserveBlockspaceParams{sig}
+	signature := internal.ReserveBlockspaceParams{
+		XLubanSignature: sig,
+	}
 	body := internal.ReserveBlockSpaceRequest(req)
 	resp, err := cl.ClientWithResponses.ReserveBlockspaceWithResponse(ctx, &signature, body)
 	if err != nil {
-		return nil, err
+		return uuid.UUID{}, err
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("ReserveBlockspace return code %v", resp.Status())
+		return uuid.UUID{}, fmt.Errorf("ReserveBlockspace return code %v", resp.Status())
 	}
-	response := types.ReserveBlockSpaceResponse{resp.JSON200.RequestId, resp.JSON200.Signature}
-	return &response, nil
+	return uuid.UUID(*resp.JSON200), nil
 }
 
 func (cl *Client) signSubmitTx(reqId uuid.UUID, tx *types.Transaction) (string, error) {
-	signature, err := crypto.Sign(types.SubmitTxDigest(reqId, tx).Bytes(), &cl.key)
+	signature, err := crypto.Sign(types.SubmitTxDigest(reqId, tx).Bytes(), cl.key)
 	if err != nil {
 		return "", err
 	}
@@ -92,14 +93,19 @@ func (cl *Client) signSubmitTx(reqId uuid.UUID, tx *types.Transaction) (string, 
 }
 
 // TODO: Handle slashing and everything
-func (cl *Client) SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx types.Transaction) error {
-	sig, err := cl.signSubmitTx(reqId, &tx)
+func (cl *Client) SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx *types.Transaction) error {
+	sig, err := cl.signSubmitTx(reqId, tx)
 	if err != nil {
 		return err
 	}
 
-	params := internal.SubmitTransactionParams{sig}
-	req := internal.SubmitTransactionRequest{reqId, tx}
+	params := internal.SubmitTransactionParams{
+		XLubanSignature: sig,
+	}
+	req := internal.SubmitTransactionRequest{
+		RequestId:   reqId,
+		Transaction: tx,
+	}
 	resp, err := cl.SubmitTransactionWithResponse(ctx, &params, req)
 	if err != nil {
 		return err
