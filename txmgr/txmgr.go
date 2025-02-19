@@ -31,10 +31,7 @@ type PreconfClient interface {
 	GetSlots(ctx context.Context) ([]luban.SlotInfo, error)
 	GetPreconfFee(ctx context.Context, slot uint64) (uint64, uint64, error)
 
-	ReserveBlockspace(
-		ctx context.Context,
-		req luban.ReserveBlockSpaceRequest,
-	) (*luban.ReserveBlockSpaceResponse, error)
+	ReserveBlockspace(ctx context.Context, req luban.ReserveBlockSpaceRequest) (uuid.UUID, error)
 
 	SubmitTransaction(ctx context.Context, reqId uuid.UUID, tx *types.Transaction) error
 }
@@ -119,7 +116,7 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 		blob = blob.Mul(blob, u256.NewInt(blobPrice))
 		deposit := gas.Add(gas, blob).Div(gas, u256.NewInt(2))
 
-		resp, err := m.client.ReserveBlockspace(ctx, luban.ReserveBlockSpaceRequest{
+		id, err := m.client.ReserveBlockspace(ctx, luban.ReserveBlockSpaceRequest{
 			BlobCount:  nBlobs,
 			Deposit:    hexutil.U256(*deposit),
 			GasLimit:   candidate.GasLimit,
@@ -132,7 +129,7 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 			continue
 		}
 
-		err = m.client.SubmitTransaction(ctx, resp.RequestId, tx)
+		err = m.client.SubmitTransaction(ctx, id, tx)
 		if err != nil {
 			m.l.Error("Sending preconfed tx failed. Slashing preconfer...", "err", err)
 			// TODO: slash preconfer
