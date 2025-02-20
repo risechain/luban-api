@@ -205,6 +205,22 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 	return m.backend.TransactionReceipt(ctx, tx.Hash())
 }
 
+func (m *PreconfTxMgr) getBaseFees(ctx context.Context) (*big.Int, *big.Int, error) {
+	bn, err := m.backend.BlockNumber(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get last block number: %w", err)
+	}
+	blk, err := m.backend.BlockByNumber(ctx, big.NewInt(int64(bn)))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get latest block (#%d): %w", bn, err)
+	}
+	// XXX: assume mainnet
+	baseFee := eip1559.CalcBaseFee(params.MainnetChainConfig, blk.Header(), blk.Header().Time+1)
+	blobFee := eip4844.CalcBlobFee(*blk.Header().ExcessBlobGas)
+
+	return baseFee.Mul(baseFee, big.NewInt(2)), blobFee.Mul(blobFee, big.NewInt(2)), nil
+}
+
 // Copied from op-service/txmgr/txmgr.go
 
 // prepare prepares the transaction for sending.
@@ -220,22 +236,6 @@ func (m *PreconfTxMgr) prepare(ctx context.Context, candidate txmgr.TxCandidate)
 		return nil, fmt.Errorf("failed to create the tx: %w", err)
 	}
 	return tx, nil
-}
-
-func (m *PreconfTxMgr) getBaseFees(ctx context.Context) (*big.Int, *big.Int, error) {
-	bn, err := m.backend.BlockNumber(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get last block number: %w", err)
-	}
-	blk, err := m.backend.BlockByNumber(ctx, big.NewInt(int64(bn)))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get latest block (#%d): %w", bn, err)
-	}
-	// XXX: assume mainnet
-	baseFee := eip1559.CalcBaseFee(params.MainnetChainConfig, blk.Header(), blk.Header().Time+1)
-	blobFee := eip4844.CalcBlobFee(*blk.Header().ExcessBlobGas)
-
-	return baseFee.Mul(baseFee, big.NewInt(2)), blobFee.Mul(blobFee, big.NewInt(2)), nil
 }
 
 // craftTx creates the signed transaction
