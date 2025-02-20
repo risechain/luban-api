@@ -296,11 +296,11 @@ func TestSubmitTxDigest(t *testing.T) {
 	}
 	fmt.Printf("Waiting for slot %d (head is %d)\n", slot, head)
 	for head < slot+1 {
+		time.Sleep(12 * time.Second)
 		head, err = setup.getHeadSlot()
 		if err != nil {
 			panic(err)
 		}
-		time.Sleep(12 * time.Second)
 	}
 
 	otherTx, pending, err := setup.Rpc.TransactionByHash(setup.ctx, tx.Hash())
