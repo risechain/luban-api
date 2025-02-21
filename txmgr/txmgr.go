@@ -107,11 +107,11 @@ func (m *PreconfTxMgr) getHeadSlot() (uint64, error) {
 	return headSlot, nil
 }
 
-func (m *PreconfTxMgr) getEpochForCandidate(ctx context.Context, candidate *txmgr.TxCandidate) (uint64, error) {
+func (m *PreconfTxMgr) getSlotForCandidate(ctx context.Context, candidate *txmgr.TxCandidate) (uint64, error) {
 	slots, err := m.client.GetSlots(ctx)
 	// TODO: retry here or on a preconf client side?
 	if err != nil {
-		return 0, fmt.Errorf("geting epoch info for preconf failed: %w", err)
+		return 0, fmt.Errorf("geting slots for preconf failed: %w", err)
 	}
 
 	head, err := m.getHeadSlot()
@@ -122,6 +122,8 @@ func (m *PreconfTxMgr) getEpochForCandidate(ctx context.Context, candidate *txmg
 	nBlobs := uint32(len(candidate.Blobs))
 	slot := uint64(0)
 	for _, s := range slots {
+		// TODO: once luban fixes sending old slots remove it or
+		// filter only the first slot
 		if s.Slot <= head+1 {
 			continue
 		}
@@ -153,16 +155,18 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 	nBlobs := uint32(len(candidate.Blobs))
 
 	for {
-		slot, err = m.getEpochForCandidate(ctx, &candidate)
+		slot, err = m.getSlotForCandidate(ctx, &candidate)
 		// XXX: Figure out if we should wait till next slot or it should be fatal
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Failed to get slot for preconf: %w", err)
 		}
+		m.l.Debug("Got slot for preconf", "slot", slot)
 
 		gasPrice, blobPrice, err := m.client.GetPreconfFee(ctx, slot)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Failed to get preconf fee: %w", err)
 		}
+		m.l.Debug("Got preconf fee", "gasPrice", gasPrice, "blobPrice", blobPrice)
 
 		// { gas_limit * gas_fee + blob_count * blob_gas_fee } * 0.5
 		gas := u256.NewInt(tx.Gas())
@@ -171,18 +175,24 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 		blob = blob.Mul(blob, u256.NewInt(blobPrice))
 		deposit := gas.Add(gas, blob).Div(gas, u256.NewInt(2))
 
-		id, err := m.client.ReserveBlockspace(ctx, luban.ReserveBlockSpaceRequest{
+		reserveReq := luban.ReserveBlockSpaceRequest{
 			BlobCount:  nBlobs,
 			Deposit:    hexutil.U256(*deposit),
 			GasLimit:   tx.Gas(),
 			TargetSlot: slot,
 			// Tip is actually the same as deposit
 			Tip: hexutil.U256(*deposit),
-		})
+		}
+		id, err := m.client.ReserveBlockspace(ctx, reserveReq)
 		if err != nil {
-			m.l.Warn("Reserving blockspace for tx failed. Someone probably took our slot. Retrying...", "err", err)
+			m.l.Warn(
+				"Reserving blockspace for tx failed. Someone probably took our slot. Retrying...",
+				"err", err,
+			)
 			continue
 		}
+
+		m.l.Debug("Reserved blockspace", "req", reserveReq)
 
 		err = m.client.SubmitTransaction(ctx, id, tx)
 		if err != nil {
@@ -194,14 +204,22 @@ func (m *PreconfTxMgr) Send(ctx context.Context, candidate txmgr.TxCandidate) (*
 	}
 
 	head, err := m.getHeadSlot()
+	getHeadErr := fmt.Errorf("Failed getting head, while waiting for preconf to fire: %w", err)
 	if err != nil {
-		return nil, err
+		return nil, getHeadErr
 	}
+
+	m.l.Debug("Waiting for preconf", "slot", slot, "head", head)
+
 	for head < slot+1 {
 		time.Sleep(time.Second)
 		head, err = m.getHeadSlot()
+		if err != nil {
+			return nil, getHeadErr
+		}
 	}
 
+	// TODO: Get err once there is an endpoint in case no receipt
 	return m.backend.TransactionReceipt(ctx, tx.Hash())
 }
 
