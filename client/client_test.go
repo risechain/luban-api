@@ -183,9 +183,9 @@ func newSetup(key, escrowAddr, gateway, beacon, rpcUrl string, chainId *big.Int)
 	}
 }
 
-func newTestSetup() *testSetup {
+func newTestSetup(key string) *testSetup {
 	return newSetup(
-		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f292",
+		key,
 		"894B19A54A829b00Ad9F1394DD82cB6746531ce0",
 		"https://gateway.taiyi-devnet-0.preconfs.org",
 		"https://bn.bootnode-1.taiyi-devnet-0.preconfs.org",
@@ -195,7 +195,11 @@ func newTestSetup() *testSetup {
 }
 
 func TestSubmitTxDigest(t *testing.T) {
-	setup := newTestSetup()
+	key, notSet := os.Lookupenv("TEST_LUBAN_KEY")
+	if notSet {
+		return
+	}
+	setup := newTestSetup(key)
 
 	balance := setup.Balance()
 	fmt.Printf("Our balance is %v\n", balance)
