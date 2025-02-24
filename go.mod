@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/holiman/uint256 v1.3.1
 	github.com/oapi-codegen/runtime v1.1.1
+	github.com/urfave/cli/v3 v3.0.0-beta1
 )
 
 require (
